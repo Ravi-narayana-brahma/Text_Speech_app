@@ -206,7 +206,7 @@ def add_custom_text_styles():
             letter-spacing: 2px;
         }
         h2 {
-            color: #2E8B57;
+            color: #fffff;
             font-family: 'Verdana', sans-serif;
             font-size: 32px;
             text-align: left;
