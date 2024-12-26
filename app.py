@@ -152,7 +152,7 @@ def load_image(image_file):
         return base64.b64encode(img_file.read()).decode()
 
 # Load the image (you can specify a file path or use base64)
-image_path = "assests\images\app.png"
+image_path = "assests/images/app.png"
 logo_image = load_image(image_path) 
 def add_custom_text_style():
     st.markdown(
