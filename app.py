@@ -198,18 +198,15 @@ def add_custom_text_styles():
     st.markdown(   
         """
         <style>
-        h1 {  
-            font-family: 'Arial', sans-serif;          
-            font-size: 50px;
-            text-align: center;
-            
-            letter-spacing: 2px;
+        h1 {
+            color: white; /* Applies to st.header */
+            font-size: 32px; /* Adjust the size for st.header */
+            font-weight: bold; /* Optional: Adjust weight */
         }
         h2 {
-            color: #fffff;
-            font-family: 'Verdana', sans-serif;
-            font-size: 32px;
-            text-align: left;
+            color: white; /* Applies to st.subheader */
+            font-size: 24px; /* Adjust the size for st.subheader */
+            font-weight: bold; /* Optional: Adjust weight */
         }
         h3 {
             color: #ffff;
@@ -296,7 +293,7 @@ def show_home_page():
         st.image(image_path, width=130)
     with col2:
         st.markdown('<h1 style=" color: white; text-align: center; margin-left: -238px; margin-top: 20px; font-family: Arial, sans-serif;">Welcome to WordVibe!</h1>', unsafe_allow_html=True)
-        st.subheader("Explore the power of text-to-speech and speech-to-text technologies.")
+    st.subheader("Explore the power of text-to-speech and speech-to-text technologies.")
 
     # Check if user details are available in session state
    
