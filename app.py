@@ -199,7 +199,7 @@ def add_custom_text_styles():
         """
         <style>
         h1 {
-            color: white; /* Applies to st.header */
+            color: white !important; /* Applies to st.header */
             font-size: 32px; /* Adjust the size for st.header */
             font-weight: bold; /* Optional: Adjust weight */
         }
