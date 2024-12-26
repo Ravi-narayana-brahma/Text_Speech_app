@@ -296,7 +296,7 @@ def show_home_page():
         st.image(image_path, width=130)
     with col2:
         st.markdown('<h1 style=" color: white; text-align: center; margin-left: -238px; margin-top: 20px; font-family: Arial, sans-serif;">Welcome to WordVibe!</h1>', unsafe_allow_html=True)
-    st.subheader("Explore the power of text-to-speech and speech-to-text technologies.")
+        st.subheader("Explore the power of text-to-speech and speech-to-text technologies.")
 
     # Check if user details are available in session state
    
