@@ -1,12 +1,5 @@
 streamlit
-pandas
 pydub
 av
-sqlite3
 bcrypt
-googletrans==4.0.0-rc1
-gTTS
-speechrecognition
-smtplib
-re
-streamlit-webrtc
+SpeechRecognition
