@@ -390,13 +390,7 @@ def show_login_page():
                     text-align: center !important;
                 }
             }
-            @media screen (min-width: 743px) and (max-width: 1200px) {
-                .head {
-                    font-size: 40px !important;
-                    margin-left: -238px !important;
-                    text-align: center !important;
-                }
-            }
+            
             </style>
             <h1 class="head">Welcome to WordVibe!</h1>'''
         , unsafe_allow_html=True)
