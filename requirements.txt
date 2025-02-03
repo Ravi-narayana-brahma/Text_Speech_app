@@ -2,6 +2,7 @@ streamlit
 pydub
 av
 bcrypt
+pyaudio
 SpeechRecognition
 gTTS
 googletrans==4.0.0-rc1
