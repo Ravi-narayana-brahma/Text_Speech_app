@@ -360,7 +360,26 @@ def show_login_page():
         new_width = int(screen_width * 0.15)  # Adjust image width to 30% of screen width
         st.image(image_path, width=new_width)
     with col2:
-        st.markdown('<h1 style=" color: black; text-align: center; margin-left: -238px; margin-top: 40px; font-family: Arial, sans-serif;">Welcome to WordVibe!</h1>', unsafe_allow_html=True)
+        st.markdown('''
+            <style>
+            .head {
+                color: black; 
+                text-align: center; 
+                margin-left: -238px; 
+                margin-top: 40px; 
+                font-family: Arial, sans-serif;
+            }
+            @media screen and (max-width: 512px) {
+                .head {
+                    font-size: 30px !important;
+                    margin-left: -285px !important;
+                    text-align: center !important;
+                }
+            }
+            </style>
+            <h1 class="head">Welcome to WordVibe!</h1>'''
+        , unsafe_allow_html=True)
+        
     st.markdown("<h3 style='color: black; font-weight: bold;'>Sign In</h3>",unsafe_allow_html=True)
     username = st.text_input("Username, Email, or Phone", key="login_username", placeholder="Enter your username or Email or Phone")
     password = st.text_input("Password", type="password", key="login_password", placeholder="Enter your password")
