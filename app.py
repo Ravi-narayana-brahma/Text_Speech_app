@@ -376,6 +376,27 @@ def show_login_page():
                     text-align: center !important;
                 }
             }
+            @media screen (min-width: 513px) and (max-width: 640px) {
+                .head {
+                    font-size: 30px !important;
+                    margin-left: -285px !important;
+                    text-align: center !important;
+                }
+            }
+            @media screen (min-width: 641px) and (max-width: 742px) {
+                .head {
+                    font-size: 40px !important;
+                    margin-left: -185px !important;
+                    text-align: center !important;
+                }
+            }
+            @media screen (min-width: 743px) and (max-width: 1200px) {
+                .head {
+                    font-size: 40px !important;
+                    margin-left: -238px !important;
+                    text-align: center !important;
+                }
+            }
             </style>
             <h1 class="head">Welcome to WordVibe!</h1>'''
         , unsafe_allow_html=True)
@@ -1585,7 +1606,7 @@ def sidebar():
         data = [
             ["Leader", "BRAHMA RAVI NARAYANA", "6300947536","ravinaryanab25@gmail.com"],
             ["Team #1", "CHOPPARLA SAITEJA", "6300316947","saitejachopparla@gmail.com"],
-            ["Team #2", "PUTHI SATHISH","6381529344","satishputhi14@gmail.com"],
+            ["Team #2", "PUTHI SATHISH","6281529344","satishputhi14@gmail.com"],
             ["Team #3", "MIRTHIPATHI SYAMSUNDAR", "8374833713","syamsundarmirthipathi123@gmail.com"]
         ]
         
