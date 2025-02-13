@@ -13,6 +13,7 @@ import re
 import time
 import datetime
 import random
+import hashlib
 from gtts import gTTS
 from googletrans import Translator
 from pydub import AudioSegment
@@ -20,6 +21,7 @@ from tempfile import NamedTemporaryFile
 from email.mime.text import MIMEText
 from streamlit_webrtc import webrtc_streamer, WebRtcMode
 from email.mime.multipart import MIMEMultipart
+st.set_page_config(page_title="Word Vibe", page_icon="assests\images\icon.jpg")
 CSV_FILE = 'users.csv'
 DB_FILE = 'users.db'
 def hash_password(password):
@@ -105,7 +107,6 @@ def authenticate(username, password):
         }
 
     return None  
-st.set_page_config(page_title="Word Vibe", page_icon="assests\images\icon.jpg")
 def add_bg_image(image_url):
     st.markdown(
         f"""
@@ -193,9 +194,6 @@ def add_custom_text_styles():
     st.markdown(   
         """
         <style>
-        [data-testid="stAppViewContainer"] {
-            overflow: hidden;
-        }
         .st-emotion-cache-1r4qj8v { /* Example class - check via browser dev tools */
             font-size: 24px;
             color: white;
@@ -411,8 +409,8 @@ def show_signup_page():
 
     # Sign Up button
     if st.button("Sign Up", key="signup_button"):
-        if username_signup and email_signup and phone_signup and name_signup and password_signup:
-            register_user(username_signup, email_signup, phone_signup, name_signup, password_signup)
+        if username_signup and name_signup and email_signup and phone_signup and password_signup:
+            register_user(username_signup, name_signup, email_signup, phone_signup, password_signup)
             st.success("User Sign in successfully! Please Login")
             st.rerun()
         else:
@@ -449,41 +447,79 @@ def show_without_login_home_page():
 
     st.title("Home Page (No Login Required)")
     st.write("You are viewing the app with limited access. Log in for full access.")
-# Function to set background and styles
+
 SUPPORTED_LANGUAGES = {
+    "Afrikaans": "af",
+    "Albanian": "sq",
+    "Amharic": "am",
+    "Arabic": "ar",
+    "Assamese": "as",
+    "Bengali": "bn",
+    "Bosnian": "bs",
+    "Bulgarian": "bg",
+    "Catalan": "ca",
+    "Chinese (Simplified)": "zh-CN",
+    "Chinese (Traditional)": "zh-TW",
+    "Czech": "cs",
+    "Danish": "da",
+    "Dutch": "nl",
     "English": "en",
+    "Filipino (Tagalog)": "fil",
+    "Finnish": "fi",
+    "French": "fr",
+    "German": "de",
+    "Greek": "el",
+    "Gujarati": "gu",
     "Hindi": "hi",
+    "Hungarian": "hu",
+    "Indonesian": "id",
+    "Italian": "it",
+    "Japanese": "ja",
+    "Kannada": "kn",
+    "Korean": "ko",
+    "Malay": "ms",
+    "Malayalam": "ml",
+    "Marathi": "mr",
+    "Nepali": "ne",
+    "Norwegian": "no",
+    "Odia (Oriya)": "or",
+    "Polish": "pl",
+    "Portuguese": "pt",
+    "Punjabi": "pa",
+    "Romanian": "ro",
+    "Russian": "ru",
+    "Spanish": "es",
+    "Swahili": "sw",
+    "Swedish": "sv",
     "Tamil": "ta",
     "Telugu": "te",
-    "Odia": "or",
-    "Kannada": "kn",
-    "Malayalam": "ml",
+    "Turkish": "tr",
     "Urdu": "ur",
-    "French": "fr",
+    "Vietnamese": "vi",
+    "Yoruba": "yo",
+    "Zulu": "zu"
 }
-# Supported languages for speech recognition
-SPEECH_LANGUAGES = {
-    "English": "en",
-    "Hindi": "hi",
-    "Tamil": "ta",
-    "Telugu": "te",
-    "Odia": "or",
-    "Kannada": "kn",
-    "Malayalam": "ml",
-    "Urdu": "ur",
-    "French": "fr",
-}
+
 translator = Translator()
 r = sr.Recognizer()
 # Function to convert text to speech
 def text_to_speech(text, language):
     try:
         tts = gTTS(text=text, lang=language, slow=False)
-        tts.save("output.mp3")
+        tts.save("output_audio/output.mp3")
         return "output.mp3"
     except Exception as e:
-        st.error(f"Error in Text-to-Speech: {e}")
-        return None
+       st.markdown(
+                        """
+                        <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
+                                    padding: 10px; border-radius: 8px; text-align: center; 
+                                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                            Failed to generate audio file.
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+        )
+        
 # Function to translate text
 def translate_text(text, source_language, dest_language):
     translator = Translator()
@@ -561,7 +597,7 @@ def recognize_from_microphone(language_code):
             st.markdown(
                 """
                 <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
-                            padding: 10px; border-radius: 8px; 
+                            padding: 20px; border-radius: 8px; margin-top: 15px; 
                             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
                     Could not understand the audio
                 </div>
@@ -584,36 +620,6 @@ def save_uploaded_file(uploaded_file):
             audio.export(audio_path, format="wav")
         return audio_path
     return None
-# Function to create the database table for TTS history
-def initialize_database():
-    with sqlite3.connect("app_data.db") as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS tts_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                time TEXT,
-                input_text TEXT,
-                translated_text TEXT,
-                input_language TEXT,
-                output_language TEXT
-            )
-        """)
-    conn.close()
-# Function to save TTS history to the database
-def save_tts_history_to_db(entry):
-    with sqlite3.connect("app_data.db") as conn:
-        conn.execute("""
-            INSERT INTO tts_history (time, input_text, translated_text, input_language, output_language)
-            VALUES (?, ?, ?, ?, ?)
-        """, (entry["Time"], entry["Input Text"], entry["Translated Text"], entry["Input Language"], entry["Output Language"]))
-    conn.commit()
-    conn.close()
-# Function to load TTS history from the database
-def load_tts_history_from_db():
-    with sqlite3.connect("app_data.db") as conn:
-        df = pd.read_sql_query("SELECT time, input_text, translated_text, input_language, output_language FROM tts_history", conn)
-    conn.close()
-    return df
-# Main function for the Text to Speech feature
 def show_text_to_speech():
     add_bg_image("https://static.vecteezy.com/system/resources/previews/024/461/751/non_2x/abstract-gradient-green-blue-liquid-wave-background-free-vector.jpg")
 
@@ -630,10 +636,6 @@ def show_text_to_speech():
             unsafe_allow_html=True
         )
         return
-
-    # Initialize history in session state
-    if "tts_history" not in st.session_state:
-        st.session_state["tts_history"] = pd.DataFrame(columns=["Time", "Input Text", "Translated Text", "Input Language", "Output Language"])
 
     st.markdown(
         """
@@ -740,33 +742,7 @@ def show_text_to_speech():
                         </div>
                         """,
                         unsafe_allow_html=True
-                    )
-                    # Create a new history entry
-                    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    new_entry = {
-                        "Time": current_time,
-                        "Input Text": text_input,
-                        "Translated Text": translated_text,
-                        "Input Language": input_language,
-                        "Output Language": output_language,
-                    }
-
-                    # Save to database
-                    save_tts_history_to_db(new_entry)
-
-                    # Add to session state for immediate update
-                    st.session_state["tts_history"] = pd.concat([st.session_state["tts_history"], pd.DataFrame([new_entry])], ignore_index=True)
-                else:
-                    st.markdown(
-                        """
-                        <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
-                                    padding: 10px; border-radius: 8px; text-align: center; 
-                                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                            Failed to generate audio file.
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                    ) 
             else:
                 st.markdown(
                         """
@@ -789,10 +765,7 @@ def show_text_to_speech():
                 """,
                 unsafe_allow_html=True
             )
-    # Display history
-    if not st.session_state["tts_history"].empty:
-        st.markdown('<div class="history-header">History</div>', unsafe_allow_html=True)
-        st.dataframe(st.session_state["tts_history"])  # Only this line is needed to display the DataFrame
+
 def translate_text(text, source_language, target_language):
     """
     Translates text from the source language to the target language.
@@ -838,37 +811,7 @@ if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 # Save the uploaded audio to the specified folder
 # Initialize SQLite connection (or create database if not exists)
-conn = sqlite3.connect("user_data.db")
-cursor = conn.cursor()
-# Create table for history if it doesn't exist
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS stt_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT,
-    timestamp TEXT,
-    input_audio TEXT,
-    transcript TEXT,
-    translated_text TEXT,
-    input_language TEXT,
-    output_language TEXT
-)
-""")
-conn.commit()
-def add_to_history_db(username, input_audio, transcript, translated_text, input_language, output_language):
-    """Save history to the database."""
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("""
-        INSERT INTO stt_history (username, timestamp, input_audio, transcript, translated_text, input_language, output_language)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (username, timestamp, input_audio, transcript, translated_text, input_language, output_language))
-    conn.commit()
-def load_history_from_db(username):
-    """Load history from the database for a specific user."""
-    cursor.execute("""
-        SELECT timestamp, input_audio, transcript, translated_text, input_language, output_language
-        FROM stt_history WHERE username = ?
-    """, (username,))
-    return cursor.fetchall()
+
 def show_speech_to_text():
     add_bg_image("https://static.vecteezy.com/system/resources/previews/023/669/544/non_2x/abstract-gradient-green-blue-liquid-wave-background-free-vector.jpg")
 
@@ -887,10 +830,6 @@ def show_speech_to_text():
         return
 
     username = st.session_state["user_details"]["username"]
-
-    # Load history from database on login
-    if "stt_history" not in st.session_state:
-        st.session_state["stt_history"] = load_history_from_db(username)
 
     st.markdown('<h1 style="font-size: 50px; font-weight: 900; color: orange; text-align: center; font-family: Arial, sans-serif;">🎤 Multilingual Speech to Text with Translation</h1>', unsafe_allow_html=True)
     st.markdown("""
@@ -964,7 +903,7 @@ def show_speech_to_text():
                     output_folder = "output_audio/"
                     os.makedirs(output_folder, exist_ok=True)
                     audio_segment.export(os.path.join(output_folder, "uploaded_audio.wav"), format="wav")
-                    chunks = split_audio(audio_segment, 5000)
+                    chunks = split_audio(audio_segment, 1000)
 
                     transcript = ""
                     for i, chunk in enumerate(chunks):
@@ -973,18 +912,6 @@ def show_speech_to_text():
                         transcript += transcribe_audio(chunk_file_path, input_language[1]) + "\n"
 
                     translated_text = translate_text(transcript, input_language[1], output_language[1])
-
-                    # Save to database and update session state
-                    add_to_history_db(username, "Uploaded Audio File", transcript, translated_text, input_language[0], output_language[0])
-                    st.session_state["stt_history"].append({
-                        "Time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "Input Audio": "Uploaded Audio File",
-                        "Transcript": transcript,
-                        "Translated Text": translated_text,
-                        "Input Language": input_language[0],
-                        "Output Language": output_language[0],
-                    })
-
                     st.markdown(
                         """
                         <div style="font-size: 23px; color: #fff; background-color: rgba(7, 228, 36, 0.88); 
@@ -996,8 +923,33 @@ def show_speech_to_text():
                         """,
                         unsafe_allow_html=True
                     )
-                    st.markdown(f"**Transcript:** {transcript}")
-                    st.markdown(f"**Translated Text:** {translated_text}")
+                    st.markdown(
+                        f"""
+                        <style>
+                            .transcript {{
+                                font-size: 18px;
+                                font-weight: bold;
+                                color: #4CAF50;
+                                background-color: #F0F8FF;
+                                padding: 10px;
+                                border-radius: 5px;
+                            }}
+                            .translated {{
+                                font-size: 18px;
+                                font-weight: bold;
+                                color: #FF5722;
+                                background-color: #FFF3E0;
+                                padding: 10px;
+                                border-radius: 5px;
+                            }}
+                        </style>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                    st.markdown(f'''<p class="transcript">📜 **Transcript:** {transcript}</p>''', unsafe_allow_html=True)
+                    st.markdown(f'''<p class="translated">🌍 **Translated Text:** {translated_text}</p>''', unsafe_allow_html=True)
+
                 else:
                     st.markdown(
                         """
@@ -1009,7 +961,6 @@ def show_speech_to_text():
                         """,
                         unsafe_allow_html=True
                     )
-
     # Handling live voice recording
     elif input_choice == "Record live voice":
         if st.button("Start Recording"):
@@ -1017,20 +968,10 @@ def show_speech_to_text():
             if recognized_text:
                 translated_text = translate_text(recognized_text, input_language[1], output_language[1])
 
-                # Save to database and update session state
-                add_to_history_db(username, "Live Voice Recording", recognized_text, translated_text, input_language[0], output_language[0])
-                st.session_state["stt_history"].append({
-                    "Time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "Input Audio": "Live Voice Recording",
-                    "Transcript": recognized_text,
-                    "Translated Text": translated_text,
-                    "Input Language": input_language[0],
-                    "Output Language": output_language[0],
-                })
                 st.markdown(
                     f"""
                     <div style="font-size: 23px; color: #fff; background-color: rgba(7, 228, 36, 0.88); 
-                            padding: 20px; border-radius: 8px; 
+                            padding: 20px; border-radius: 8px; margin-top: 20px; 
                             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
                             Recognized Text: {recognized_text}
                     </div>
@@ -1059,35 +1000,6 @@ def show_speech_to_text():
                         """,
                         unsafe_allow_html=True
                 )
-
-    # Display history in a styled table with column headers
-    # Display history in a styled table with column headers
-    if st.session_state["stt_history"]:
-        st.markdown("<h2 style='color: orange;'>History</h2>", unsafe_allow_html=True)
-        history_df = pd.DataFrame(st.session_state["stt_history"])
-
-        # Set proper column headers
-        history_df.columns = [
-            "Timestamp",
-            "Input Audio",
-            "Transcript",
-            "Translated Text",
-            "Input Language",
-            "Output Language",
-        ]
-
-        # Use st.dataframe for better rendering
-        st.dataframe(
-            history_df.style.set_table_styles(
-                [
-                    {"selector": "thead th", "props": [("background-color", "orange"), ("color", "white"), ("text-align", "center")]},
-                    {"selector": "tbody td", "props": [("background-color", "white"), ("text-align", "left")]},
-                    {"selector": "table", "props": [("border-collapse", "collapse"), ("width", "100%")]},
-                    {"selector": "tr", "props": [("border", "1px solid #ddd")]},
-                ]
-            ),
-            use_container_width=True,
-        )
 friendly_faq_knowledge_base = {
     "Hello! How are you?": [
         "I'm just a computer program, but I'm here to help you! How can I assist you today?"
@@ -1370,13 +1282,13 @@ def show_account_page():
                 <strong>Username:</strong>  {user_details['username']}<br>
             </div><br>
             <div class='user-details'>
-                <strong>Name:</strong> {user_details['phone']}<br>
+                <strong>Name:</strong> {user_details['name']}<br>
             </div><br>
             <div class='user-details'>
-                <strong>Email:</strong> {user_details['name']}<br>
+                <strong>Email:</strong> {user_details['email']}<br>
             </div><br>
             <div class='user-details'>
-                <strong>Phone:</strong> {user_details['email']}<br>
+                <strong>Phone:</strong> {user_details['phone']}<br>
             </div>
             <br>
             """,
@@ -1385,7 +1297,7 @@ def show_account_page():
 
         # Hidden Streamlit button for logout logic
         if st.button("Log out", key="logout-button", help="Log out and clear session state"):
-            st.session_state.clear()  # Clear the entire session state
+            st.session_state.clear()
             st.success("You have logged out successfully.")
             st.session_state["show_login"] = True
             st.rerun()
@@ -1561,7 +1473,6 @@ def sidebar():
         st.markdown('<p class="highlight-email">ravinaryanab25@gmail.com</p>', unsafe_allow_html=True)
         
         st.write("---")
-
         # Contact details in a table
         data = [
             ["Leader", "BRAHMA RAVI NARAYANA", "6300947536","ravinaryanab25@gmail.com"],
@@ -1569,7 +1480,6 @@ def sidebar():
             ["Team #2", "PUTHI SATHISH","6281529344","satishputhi14@gmail.com"],
             ["Team #3", "MIRTHIPATHI SYAMSUNDAR", "8374833713","syamsundarmirthipathi123@gmail.com"]
         ]
-        
         df = pd.DataFrame(data, columns=["Position","Name", "Phone Number","E-Mail"])
         st.table(df)  # Define this function
 # Entry point of the Streamlit app
