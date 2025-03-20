@@ -1,4 +1,5 @@
 streamlit
+numpy
 pydub
 av
 easyocr
