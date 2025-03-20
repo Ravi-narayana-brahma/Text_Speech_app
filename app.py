@@ -1149,17 +1149,24 @@ def show_text_to_text_translation():
 
     # Close the container
     st.markdown('</div>', unsafe_allow_html=True)
-reader = easyocr.Reader(["en"])  # Add other languages if needed
+import tempfile
+
+# ✅ Initialize EasyOCR Reader
+reader = easyocr.Reader(["en"], download_enabled=True, model_storage_directory="models/")
+
+def text_to_speech(text, lang="en"):
+    tts = gTTS(text=text, lang=lang)
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+    tts.save(temp_file.name)
+    return temp_file.name
 
 def show_image_to_text_to_speech():
-    add_bg_image("https://static.vecteezy.com/system/resources/previews/024/461/751/non_2x/abstract-gradient-green-blue-liquid-wave-background-free-vector.jpg")
-
     st.markdown('<h1 style="font-size: 40px; color: white; text-align: center;">🖼️ Image to Text-to-Speech</h1>', unsafe_allow_html=True)
 
     uploaded_image = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
 
     if uploaded_image:
-        image = Image.open(uploaded_image)
+        image = Image.open(uploaded_image).convert("RGB")  # ✅ Ensure RGB mode
         st.image(image, use_container_width=True)
 
         # ✅ Convert Image to NumPy Array for EasyOCR
