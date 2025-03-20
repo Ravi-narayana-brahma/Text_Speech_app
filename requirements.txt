@@ -1,7 +1,7 @@
 streamlit
 pydub
 av
-pytesseract
+easyocr
 bcrypt
 SpeechRecognition
 gTTS
