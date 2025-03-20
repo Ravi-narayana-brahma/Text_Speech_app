@@ -720,47 +720,6 @@ def speech_to_text(audio_file, language_code):
     except sr.RequestError as e:
         st.error(f"Could not request results from Google Web Speech API; {e}")
         return None
-def process_audio(frame: av.AudioFrame):
-    audio = frame.to_ndarray()
-    return audio
-
-def recognize_from_webrtc(language_code="en-US"):
-    webrtc_ctx = webrtc_streamer(key="speech_recognition",
-                                 mode=WebRtcMode.SENDONLY,
-                                 media_stream_constraints={"audio": True, "video": False})
-
-    if webrtc_ctx and webrtc_ctx.audio_receiver:
-        audio_frames = []
-        while True:
-            try:
-                frame = webrtc_ctx.audio_receiver.get_frames(timeout=1)
-                if not frame:
-                    break
-                audio_frames.append(process_audio(frame))
-            except:
-                break
-        
-        if not audio_frames:
-            st.error("⚠ No audio received. Please check your microphone.")
-            return None
-
-        # Convert to numpy array
-        audio_data = np.concatenate(audio_frames, axis=0)
-
-        # Convert to `speech_recognition` audio format
-        recognizer = sr.Recognizer()
-        try:
-            audio = sr.AudioData(audio_data.tobytes(), sample_rate=16000, sample_width=2)
-            text = recognizer.recognize_google(audio, language=language_code)
-            return text
-        except sr.UnknownValueError:
-            st.error("⚠ Speech recognition failed. Please speak clearly and try again.")
-            return None
-        except sr.RequestError as e:
-            st.error(f"⚠ Google Speech API error: {e}")
-            return None
-
-    return None
 def recognize_from_microphone(language_code):
     recognizer = sr.Recognizer()
 
@@ -1402,7 +1361,7 @@ def show_speech_to_text():
     # Handling live voice recording
     elif input_choice == "Record live voice":
         if st.button("Start Recording"):
-            recognized_text = recognize_from_webrtc(input_language[1])
+            recognized_text = recognize_from_microphone(input_language[1])
             if recognized_text:
                 translated_text = translate_text(recognized_text, input_language[1], output_language[1])
 
