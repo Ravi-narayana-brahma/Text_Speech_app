@@ -339,7 +339,7 @@ def add_responsive_css():
             }
             /* Adjust main heading size */
             h1 {
-                font-size: 32px !important;
+                font-size: 31px !important;
                 text-align: center !important;
                 margin-left: 130px !important;
                 margin-top: -120px !important;
