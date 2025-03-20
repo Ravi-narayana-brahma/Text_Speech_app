@@ -361,9 +361,9 @@ def add_responsive_css():
 
             /* Ensure images are responsive */
             .stImage {
-                width: 70% !important;
+                width: 50% !important;
                 display: block;
-                margin: 0 auto;
+                margin: 0 auto ;
             }
         }
         </style>
