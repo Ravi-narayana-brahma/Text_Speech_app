@@ -20,6 +20,7 @@ from PIL import Image
 from gtts import gTTS
 from googletrans import Translator
 from pydub import AudioSegment
+from streamlit_audio_recorder import st_audio_recorder
 from tempfile import NamedTemporaryFile
 from email.mime.text import MIMEText
 from streamlit_webrtc import webrtc_streamer, WebRtcMode
@@ -791,6 +792,24 @@ def recognize_from_microphone(language_code):
     
     except sr.RequestError as e:
         st.error(f"Could not request results from Google Web Speech API; {e}")
+def recognize_speech_from_audio(audio_path, language_code="en-US"):
+    recognizer = sr.Recognizer()
+    
+    # Convert audio to WAV format (if not already in WAV)
+    audio = AudioSegment.from_file(audio_path)
+    wav_path = audio_path.replace(".mp3", ".wav")
+    audio.export(wav_path, format="wav")
+
+    with sr.AudioFile(wav_path) as source:
+        audio_data = recognizer.record(source)
+    
+    try:
+        recognized_text = recognizer.recognize_google(audio_data, language=language_code)
+        return recognized_text
+    except sr.UnknownValueError:
+        return "Could not understand the audio. Please try again."
+    except sr.RequestError as e:
+        return f"Error with Google Web Speech API: {e}"
 def save_uploaded_file(uploaded_file):
     if uploaded_file is not None:
         audio_format = uploaded_file.name.split('.')[-1].lower()
@@ -1361,8 +1380,8 @@ def show_speech_to_text():
 
     # Handling live voice recording
     elif input_choice == "Record live voice":
-        if st.button("Start Recording"):
-            recognized_text = recognize_from_microphone(input_language[1])
+        if st_audio_recorder("Start Recording"):
+            recognized_text = recognize_speech_from_audio(input_language[1])
             if recognized_text:
                 translated_text = translate_text(recognized_text, input_language[1], output_language[1])
 
