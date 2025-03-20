@@ -13,7 +13,7 @@ import re
 import time
 import random
 import hashlib
-import pytesseract
+import easyocr
 import pyttsx3
 from PIL import Image
 from gtts import gTTS
@@ -1148,19 +1148,27 @@ def show_text_to_text_translation():
 
     # Close the container
     st.markdown('</div>', unsafe_allow_html=True)
-pytesseract.pytesseract.tesseract_cmd = r"tesseract.exe"
+reader = easyocr.Reader(["en"])  # Add more languages if needed
+
+def text_to_speech(text):
+    engine = pyttsx3.init()
+    engine.save_to_file(text, "output.mp3")
+    engine.runAndWait()
+    return "output.mp3"
+
 def show_image_to_text_to_speech():
+    # Background Image
     add_bg_image("https://static.vecteezy.com/system/resources/previews/024/461/751/non_2x/abstract-gradient-green-blue-liquid-wave-background-free-vector.jpg")
 
+    # Title
     st.markdown('<h1 style="font-size: 40px; color: white; text-align: center;">🖼️ Image to Text-to-Speech</h1>', unsafe_allow_html=True)
 
+    # File Upload
     uploaded_image = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
 
     if uploaded_image:
         image = Image.open(uploaded_image)
-        st.image(image, use_container_width=True)  # Updated parameter
-        
-        # Styled Caption Below the Image
+        st.image(image, use_column_width=True)
         st.markdown(
             """
             <p style="
@@ -1177,10 +1185,11 @@ def show_image_to_text_to_speech():
             """,
             unsafe_allow_html=True
         )
+        # Extract text using EasyOCR
+        extracted_text = reader.readtext(np.array(image), detail=0)
+        extracted_text = " ".join(extracted_text)
 
-        extracted_text = pytesseract.image_to_string(image)
-
-        # Enhanced Extracted Text Display with Better Design
+        # Display Extracted Text
         st.markdown(
             f"""
             <div style="
@@ -1189,26 +1198,22 @@ def show_image_to_text_to_speech():
                 padding: 20px; 
                 border-radius: 12px; 
                 font-size: 20px; 
-                font-family: 'Arial', sans-serif;
-                margin-top: 15px;
-                box-shadow: 2px 2px 15px rgba(255, 255, 255, 0.2);
                 text-align: justify;
                 line-height: 1.6;">
                 <strong style="font-size: 22px; text-decoration: underline;">Extracted Text:</strong>
-                <p style="margin-top: 10px; font-size: 10px; padding: 10px; background: rgba(255, 255, 255, 0.1); border-radius: 8px;">
-                    {extracted_text}
-               </p>
+                <p>{extracted_text}</p>
+            </div>
             """,
             unsafe_allow_html=True
         )
 
-        # Space between Extracted Text & Button
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        if st.button("🔊 Convert to Speech", key="tts_button"):
-            output_file = text_to_speech(extracted_text, "en")
-            if output_file:
+        # Convert to Speech
+        if st.button("🔊 Convert to Speech"):
+            if extracted_text:
+                output_file = text_to_speech(extracted_text)
                 st.audio(output_file, format="audio/mp3")
+            else:
+                st.warning("No text found in the image.")
 def show_speech_to_text():
     add_bg_image("https://static.vecteezy.com/system/resources/previews/023/669/544/non_2x/abstract-gradient-green-blue-liquid-wave-background-free-vector.jpg")
     # Check if the user is logged in
