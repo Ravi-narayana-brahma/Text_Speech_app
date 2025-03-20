@@ -20,7 +20,7 @@ from PIL import Image
 from gtts import gTTS
 from googletrans import Translator
 from pydub import AudioSegment
-from streamlit_audio_recorder import st_audio_recorder
+from streamlit_mic_recorder import mic_recorder
 from tempfile import NamedTemporaryFile
 from email.mime.text import MIMEText
 from streamlit_webrtc import webrtc_streamer, WebRtcMode
