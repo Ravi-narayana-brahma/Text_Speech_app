@@ -1930,12 +1930,12 @@ def sidebar():
         st.write("---")
         # Contact details in a table
         data = [
-            ["Leader", "BRAHMA RAVI NARAYANA", "6300947536","ravinaryanab25@gmail.com"],
-            ["Team #1", "CHOPPARLA SAITEJA", "6300316947","saitejachopparla@gmail.com"],
-            ["Team #2", "PUTHI SATHISH","6281529344","satishputhi14@gmail.com"],
-            ["Team #3", "MIRTHIPATHI SYAMSUNDAR", "8374833713","syamsundarmirthipathi123@gmail.com"]
+            ["Leader", "BRAHMA RAVI NARAYANA","ravinaryanab25@gmail.com"],
+            ["Team #1", "CHOPPARLA SAITEJA","saitejachopparla@gmail.com"],
+            ["Team #2", "PUTHI SATHISH","satishputhi14@gmail.com"],
+            ["Team #3", "MIRTHIPATHI SYAMSUNDAR","syamsundarmirthipathi123@gmail.com"]
         ]
-        df = pd.DataFrame(data, columns=["Position","Name", "Phone Number","E-Mail"])
+        df = pd.DataFrame(data, columns=["Position","Name","E-Mail"])
         st.table(df)  # Define this function
 
 # Entry point of the Streamlit app
