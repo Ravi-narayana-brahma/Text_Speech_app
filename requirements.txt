@@ -1,7 +1,6 @@
 streamlit
 numpy
 pydub
-streamlit-audio-recorder
 av
 easyocr
 bcrypt
@@ -14,3 +13,4 @@ ffmpeg
 googletrans==4.0.0-rc1
 streamlit-webrtc
 pyttsx3
+streamlit-mic-recorder
