@@ -1148,72 +1148,38 @@ def show_text_to_text_translation():
 
     # Close the container
     st.markdown('</div>', unsafe_allow_html=True)
-reader = easyocr.Reader(["en"])  # Add more languages if needed
-
-def text_to_speech(text):
-    engine = pyttsx3.init()
-    engine.save_to_file(text, "output.mp3")
-    engine.runAndWait()
-    return "output.mp3"
+reader = easyocr.Reader(["en"])  # Add other languages if needed
 
 def show_image_to_text_to_speech():
-    # Background Image
     add_bg_image("https://static.vecteezy.com/system/resources/previews/024/461/751/non_2x/abstract-gradient-green-blue-liquid-wave-background-free-vector.jpg")
 
-    # Title
     st.markdown('<h1 style="font-size: 40px; color: white; text-align: center;">🖼️ Image to Text-to-Speech</h1>', unsafe_allow_html=True)
 
-    # File Upload
     uploaded_image = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
 
     if uploaded_image:
         image = Image.open(uploaded_image)
-        st.image(image, use_column_width=True)
-        st.markdown(
-            """
-            <p style="
-                text-align: center; 
-                font-size: 18px; 
-                font-weight: bold; 
-                color: #ffffff; 
-                background-color: rgba(0, 0, 0, 0.6); 
-                padding: 8px; 
-                border-radius: 8px;
-                display: inline-block;">
-                📷 Uploaded Image
-            </p>
-            """,
-            unsafe_allow_html=True
-        )
-        # Extract text using EasyOCR
-        extracted_text = reader.readtext(np.array(image), detail=0)
-        extracted_text = " ".join(extracted_text)
+        st.image(image, use_container_width=True)
 
-        # Display Extracted Text
-        st.markdown(
-            f"""
-            <div style="
-                background-color: #262626; 
-                color: #ffffff; 
-                padding: 20px; 
-                border-radius: 12px; 
-                font-size: 20px; 
-                text-align: justify;
-                line-height: 1.6;">
+        # ✅ Convert Image to NumPy Array for EasyOCR
+        img_np = np.array(image)
+
+        # ✅ Use EasyOCR to Extract Text
+        extracted_text = reader.readtext(img_np, detail=0)  # Returns a list of words
+        extracted_text = " ".join(extracted_text)  # Convert list to string
+
+        # ✅ Display Extracted Text
+        st.markdown(f"""
+            <div style="background-color: #262626; color: #ffffff; padding: 20px; border-radius: 12px; font-size: 20px;">
                 <strong style="font-size: 22px; text-decoration: underline;">Extracted Text:</strong>
-                <p>{extracted_text}</p>
+                <p style="margin-top: 10px;">{extracted_text}</p>
             </div>
-            """,
-            unsafe_allow_html=True
-        )
+        """, unsafe_allow_html=True)
 
-        # Convert to Speech
-        if st.button("🔊 Convert to Speech"):
-            if extracted_text:
-                output_file = text_to_speech(extracted_text)
+        if st.button("🔊 Convert to Speech", key="tts_button"):
+            output_file = text_to_speech(extracted_text, "en")
+            if output_file:
                 st.audio(output_file, format="audio/mp3")
-            else:
-                st.warning("No text found in the image.")
 def show_speech_to_text():
     add_bg_image("https://static.vecteezy.com/system/resources/previews/023/669/544/non_2x/abstract-gradient-green-blue-liquid-wave-background-free-vector.jpg")
     # Check if the user is logged in
