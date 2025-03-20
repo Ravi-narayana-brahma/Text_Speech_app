@@ -723,74 +723,56 @@ def speech_to_text(audio_file, language_code):
         return None
 def recognize_from_microphone(language_code):
     recognizer = sr.Recognizer()
-
-    # Adjust settings for better recognition
-    recognizer.pause_threshold = 1.0  
-    recognizer.energy_threshold = 400  
-
-    # 🔍 Check if a microphone exists before using it
-    try:
-        if pyaudio.PyAudio().get_default_input_device_info():  
-            with sr.Microphone() as source:
-                st.markdown(
-                    """
-                        <div style="font-size: 18px; color: #fff; background-color: rgb(30, 9, 150); 
-                                padding: 20px; border-radius: 8px; 
-                                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                            Adjusting for ambient noise... Please wait.
-                        </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-                recognizer.adjust_for_ambient_noise(source, duration=1)
-                
-                st.markdown(
-                    """
-                        <div style="font-size: 18px; color: #fff; background-color: rgb(30, 9, 150); 
-                                padding: 20px; border-radius: 8px; margin-top: 15px;
-                                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                            Listening... Please speak into the microphone.
-                        </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-                audio_data = recognizer.listen(source)
-                
-                st.markdown(
-                    """
-                        <div style="font-size: 18px; color: #fff; background-color: rgb(30, 9, 150); 
-                                padding: 20px; border-radius: 8px; margin-top: 15px;
-                                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                            Processing audio...
-                        </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-                text = recognizer.recognize_google(audio_data, language=language_code)
-                return text
-        else:
-            raise OSError("No microphone found")
-    
-    except OSError:
-        st.error("No microphone detected. Please upload an audio file instead.")
-        return ""
-
-    except sr.UnknownValueError:
+    with sr.Microphone() as source:
         st.markdown(
-            """
-            <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
-                        padding: 20px; border-radius: 8px; margin-top: 15px; 
-                        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                Could not understand the audio. Please try again.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    
-    except sr.RequestError as e:
-        st.error(f"Could not request results from Google Web Speech API; {e}")
+                """
+                    <div style="font-size: 18px; color: #fff; background-color: rgb(30, 9, 150); 
+                            padding: 20px; border-radius: 8px; 
+                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                        Adjusting for ambient noise... Please wait.
+                    </div>
+                """,
+                unsafe_allow_html=True
+                )
+        recognizer.adjust_for_ambient_noise(source, duration=1)
+        st.markdown(
+                """
+                    <div style="font-size: 18px; color: #fff; background-color: rgb(30, 9, 150); 
+                            padding: 20px; border-radius: 8px; margin-top: 15px;
+                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                        Listening... Please speak into the microphone.
+                    </div>
+                """,
+                unsafe_allow_html=True
+                )
+        try:
+            audio_data = recognizer.listen(source, timeout=10, phrase_time_limit=15)
+            st.markdown(
+                """
+                    <div style="font-size: 18px; color: #fff; background-color: rgb(30, 9, 150); 
+                            padding: 20px; border-radius: 8px; margin-top: 15px;
+                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                        Processing audio...
+                    </div>
+                """,
+                unsafe_allow_html=True
+            )
+            text = recognizer.recognize_google(audio_data, language=language_code)
+            return text
+        except sr.UnknownValueError:
+            st.markdown(
+                """
+                <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
+                            padding: 20px; border-radius: 8px; margin-top: 15px; 
+                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                    Could not understand the audio
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        except sr.RequestError as e:
+            st.error(f"Could not request results from Google Web Speech API; {e}")
+    return None
 def save_uploaded_file(uploaded_file):
     if uploaded_file is not None:
         audio_format = uploaded_file.name.split('.')[-1].lower()
