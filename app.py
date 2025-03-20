@@ -339,7 +339,7 @@ def add_responsive_css():
             }
             /* Adjust main heading size */
             h1 {
-                font-size: 33px !important;
+                font-size: 36px !important;
                 text-align: center !important;
                 margin-left: 37px !important;
                 margin-top: -34px !important;
@@ -363,7 +363,7 @@ def add_responsive_css():
             .stImage {
                 width: 50% !important;
                 display: block;
-                margin: 0 auto ;
+                margin: 0 auto;
             }
         }
         </style>
@@ -458,6 +458,19 @@ def show_home_page():
                 }
                 [data-testid="stHeader"], [data-testid="stToolbar"] {
                     background: rgba(0,0,0,0); /* Hides header */
+                }
+                @media (max-width: 640px) {
+                    h1 {
+                        font-size: 24px !important;
+                        text-align: center !important;
+                        margin-left: 100px !important;
+                        margin-top: -80px !important;
+                    }
+                    .stImage {
+                        width: 60% !important;
+                        display: block;
+                        margin: 0 auto;
+                    }
                 }
             </style>
             """,
