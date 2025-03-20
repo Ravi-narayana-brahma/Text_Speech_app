@@ -461,7 +461,7 @@ def show_home_page():
                 }
                 @media (max-width: 640px) {
                     h1 {
-                        font-size: 31px !important;
+                        font-size: 30px !important;
                         text-align: center !important;
                         margin-left: 100px !important;
                         margin-top: -90px !important;
