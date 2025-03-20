@@ -339,10 +339,10 @@ def add_responsive_css():
             }
             /* Adjust main heading size */
             h1 {
-                font-size: 31px !important;
+                font-size: 28px !important;
                 text-align: center !important;
-                margin-left: 130px !important;
-                margin-top: -120px !important;
+                margin-left: 37px !important;
+                margin-top: -34px !important;
             }
 
             /* Adjust buttons inside .stButton */
