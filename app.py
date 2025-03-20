@@ -461,13 +461,13 @@ def show_home_page():
                 }
                 @media (max-width: 640px) {
                     h1 {
-                        font-size: 30px !important;
+                        font-size: 29px !important;
                         text-align: center !important;
                         margin-left: 100px !important;
                         margin-top: -90px !important;
                     }
                     .stImage {
-                        width: 65% !important;
+                        width: 63% !important;
                         display: block;
                         margin: 0 auto;
                     }
