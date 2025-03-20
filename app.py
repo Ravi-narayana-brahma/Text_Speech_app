@@ -1161,10 +1161,9 @@ def text_to_speech(text, lang="en"):
     return temp_file.name
 
 def show_image_to_text_to_speech():
+    add_bg_image("https://static.vecteezy.com/system/resources/previews/024/461/751/non_2x/abstract-gradient-green-blue-liquid-wave-background-free-vector.jpg")
     st.markdown('<h1 style="font-size: 40px; color: white; text-align: center;">🖼️ Image to Text-to-Speech</h1>', unsafe_allow_html=True)
-
     uploaded_image = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
-
     if uploaded_image:
         try:
             image = Image.open(uploaded_image).convert("RGB")  # Ensure RGB mode
