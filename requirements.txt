@@ -1,6 +1,7 @@
 streamlit
 numpy
 pydub
+streamlit-audio-recorder==0.1.0
 av
 easyocr
 bcrypt
