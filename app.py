@@ -25,7 +25,7 @@ from tempfile import NamedTemporaryFile
 from email.mime.text import MIMEText
 from streamlit_webrtc import webrtc_streamer, WebRtcMode
 from email.mime.multipart import MIMEMultipart
-st.set_page_config(page_title="Word Vibe", page_icon="assests\images\icon.jpg")
+st.set_page_config(page_title="Word Vibe", page_icon="assests/images/app.png")
 CSV_FILE = 'users.csv'
 DB_FILE = 'users.db'
 def hash_password(password):
