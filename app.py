@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 import pydub
+import pyaudio
 import av
 import sqlite3
 import bcrypt
