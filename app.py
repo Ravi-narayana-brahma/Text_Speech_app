@@ -1186,7 +1186,7 @@ def show_image_to_text_to_speech():
             st.markdown(f"""
                 <div style="background-color: #262626; color: #ffffff; padding: 20px; border-radius: 12px; font-size: 20px;">
                     <strong style="font-size: 22px; text-decoration: underline;">Extracted Text:</strong>
-                    <p style="margin-top: 10px;">{extracted_text}</p>
+                    <p style="margin-top: 10px;">{extracted_text}</p><br><br>
                 </div>
             """, unsafe_allow_html=True)
     
