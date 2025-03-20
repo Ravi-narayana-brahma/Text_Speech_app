@@ -1166,17 +1166,24 @@ def show_image_to_text_to_speech():
     uploaded_image = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
 
     if uploaded_image:
-        image = Image.open(uploaded_image).convert("RGB")  # ✅ Ensure RGB mode
+    try:
+        image = Image.open(uploaded_image).convert("RGB")  # Ensure RGB mode
+        # Resize the image to a maximum width of 800 pixels
+        max_width = 800
+        width_percent = (max_width / float(image.size[0]))
+        height_size = int((float(image.size[1]) * float(width_percent)))
+        image = image.resize((max_width, height_size), Image.Resampling.LANCZOS)
+        
         st.image(image, use_container_width=True)
 
-        # ✅ Convert Image to NumPy Array for EasyOCR
+        # Convert Image to NumPy Array for EasyOCR
         img_np = np.array(image)
 
-        # ✅ Use EasyOCR to Extract Text
+        # Use EasyOCR to Extract Text
         extracted_text = reader.readtext(img_np, detail=0)  # Returns a list of words
         extracted_text = " ".join(extracted_text)  # Convert list to string
 
-        # ✅ Display Extracted Text
+        # Display Extracted Text
         st.markdown(f"""
             <div style="background-color: #262626; color: #ffffff; padding: 20px; border-radius: 12px; font-size: 20px;">
                 <strong style="font-size: 22px; text-decoration: underline;">Extracted Text:</strong>
@@ -1188,6 +1195,8 @@ def show_image_to_text_to_speech():
             output_file = text_to_speech(extracted_text, "en")
             if output_file:
                 st.audio(output_file, format="audio/mp3")
+    except Exception as e:
+        st.error(f"Error processing image: {e}")
 def show_speech_to_text():
     add_bg_image("https://static.vecteezy.com/system/resources/previews/023/669/544/non_2x/abstract-gradient-green-blue-liquid-wave-background-free-vector.jpg")
     # Check if the user is logged in
