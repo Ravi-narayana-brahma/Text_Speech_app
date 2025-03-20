@@ -671,26 +671,14 @@ SUPPORTED_LANGUAGES = {
 translator = Translator()
 r = sr.Recognizer()
 # Function to convert text to speech
-def text_to_speech(text, language, voice_id=None):
+def text_to_speech(text, lang="en"):
     try:
-        engine = pyttsx3.init()
-        
-        # Set voice if provided
-        if voice_id:
-            engine.setProperty('voice', voice_id)
-        
-        # Set language (if supported by pyttsx3)
-        engine.setProperty('rate', 150)  # Speed of speech
-        engine.setProperty('volume', 1.0)  # Volume level
-        
-        # Save speech to a file
+        tts = gTTS(text=text, lang=lang)
         output_file = "output.mp3"
-        engine.save_to_file(text, output_file)
-        engine.runAndWait()
-        
+        tts.save(output_file)
         return output_file
     except Exception as e:
-        st.error(f"Error in text-to-speech conversion: {e}")
+        print(f"Error in text-to-speech conversion: {e}")
         return None
 # Function to get available voices
 def get_available_voices():
