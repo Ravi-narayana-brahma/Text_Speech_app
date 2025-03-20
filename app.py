@@ -1148,7 +1148,7 @@ def show_text_to_text_translation():
 
     # Close the container
     st.markdown('</div>', unsafe_allow_html=True)
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+pytesseract.pytesseract.tesseract_cmd = r"tesseract.exe"
 def show_image_to_text_to_speech():
     add_bg_image("https://static.vecteezy.com/system/resources/previews/024/461/751/non_2x/abstract-gradient-green-blue-liquid-wave-background-free-vector.jpg")
 
