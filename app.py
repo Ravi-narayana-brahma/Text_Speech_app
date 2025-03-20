@@ -11,9 +11,11 @@ import speech_recognition as sr
 import smtplib
 import re
 import time
-import datetime
 import random
 import hashlib
+import pytesseract
+import pyttsx3
+from PIL import Image
 from gtts import gTTS
 from googletrans import Translator
 from pydub import AudioSegment
@@ -28,6 +30,8 @@ def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 def check_password(hashed_password, password):
     return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
+if "user_details" not in st.session_state:
+    st.session_state["user_details"] = None
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -41,6 +45,46 @@ def init_db():
             password TEXT
         )
     ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS tts_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT,
+            input_text TEXT,
+            input_language TEXT,
+            output_language TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS stt_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT,
+            input_language TEXT,
+            output_language TEXT,
+            transcript TEXT,
+            translated_text TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+def save_tts_history(username, input_text, input_language, output_language):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO tts_history (username, input_text, input_language, output_language)
+        VALUES (?, ?, ?, ?)
+    ''', (username, input_text, input_language, output_language))
+    conn.commit()
+    conn.close()
+
+def save_stt_history(username, input_language, output_language, transcript, translated_text):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO stt_history (username, input_language, output_language, transcript, translated_text)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (username, input_language, output_language, transcript, translated_text))
     conn.commit()
     conn.close()
 def read_users_from_csv():
@@ -275,7 +319,55 @@ def add_custom_text_styles():
         """,
         unsafe_allow_html=True
     )
-# Function to handle password recovery
+def add_responsive_css():
+    """Injects responsive CSS to fix small screen layout issues."""
+    st.markdown("""
+        <style>
+        /* Small Screens: Mobile Phones (Max 640px) */
+        @media (max-width: 640px) {
+            /* Stack columns vertically */
+            .st-emotion-cache-1r4qj8v {
+                flex-direction: column !important;
+            }
+
+            /* Adjust heading sizes inside columns */
+            .stColumns h1 {
+                font-size: 28px !important;
+                text-align: center !important;
+                width: 100% !important;
+                display: block;
+            }
+            /* Adjust main heading size */
+            h1 {
+                font-size: 33px !important;
+                text-align: center !important;
+                margin-left: 130px !important;
+                margin-top: -120px !important;
+            }
+
+            /* Adjust buttons inside .stButton */
+            .stButton > button {
+                font-size: 16px !important;
+                padding: 10px !important;
+                width: 100% !important;
+            }
+
+            /* Modify text input fields */
+            .stTextInput input, .stTextArea textarea {
+                font-size: 16px !important;
+                padding: 8px !important;
+                width: 100% !important;
+            }
+
+            /* Ensure images are responsive */
+            .stImage {
+                width: 70% !important;
+                display: block;
+                margin: 0 auto;
+            }
+        }
+        </style>
+    """, unsafe_allow_html=True)
 def handle_password_recovery(input_value):
     # Simple check to differentiate between email and phone numbe
     message = f"Password recovery instructions sent to <strong>{input_value}</strong> via SMS."
@@ -289,67 +381,130 @@ def handle_password_recovery(input_value):
     st.markdown(success_message, unsafe_allow_html=True)
 # Home Page Content
 def show_home_page():
-    st.markdown(
-        """
-        <style>
-            [data-testid="stAppViewContainer"] {
-                background: linear-gradient(135deg, #9b59b6, #1abc9c);
-                background-size: cover;
-                background-position: center;
-                background-repeat: no-repeat;
-                background-attachment: fixed;
-                
-            }
-            /* Sidebar width customization */
-            
-            [data-testid="stHeader"], [data-testid="stToolbar"] {
-                background: rgba(0,0,0,0); /* Hides header */
-            }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-    col1, col2 = st.columns(2)
-    with col1:
-        st.image(image_path, width=130)
-    with col2:
-        st.markdown('<h1 style=" color: white; text-align: center; margin-left: -238px; margin-top: 20px; font-family: Arial, sans-serif;">Welcome to WordVibe!</h1>', unsafe_allow_html=True)
-    # Check if user details are available in session state
-    if "user_details" in st.session_state:
-        user_details = st.session_state["user_details"]
-        greeting_message = f"Hello, {user_details['username']}!"
+    # Display the selected card functionality if a card is selected
+    if st.session_state.selected_card == "Text to Speech":
+        show_text_to_speech()
+    elif st.session_state.selected_card == "Speech to Text":
+        show_speech_to_text()
+    elif st.session_state.selected_card == "Text to Text":
+        show_text_to_text_translation()
+    elif st.session_state.selected_card == "Image to Speech":
+        show_image_to_text_to_speech()
     else:
-        greeting_message = "Hello, Guest!"
+        # Show home page cards only if no card is selected
+        st.markdown(
+            """
+            <style>
+                [data-testid="stAppViewContainer"] {
+                    background: linear-gradient(135deg, #9b59b6, #1abc9c);
+                    background-size: cover;
+                    background-position: center;
+                    background-repeat: no-repeat;
+                    background-attachment: fixed;
+                }
+                /* Custom CSS for big square buttons */
+                .stButton > button {
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: flex-end;
+                    align-items: center;
+                    width: 100%;
+                    height: 150px; /* Adjust height as needed */
+                    background: linear-gradient(135deg, #33006F, #6A0DAD); /* Gradient background */
+                    color: white;
+                    font-size: 16px;
+                    font-weight: bold;
+                    border-radius: 15px;
+                    border: none;
+                    cursor: pointer;
+                    transition: transform 0.2s, box-shadow 0.3s;
+                    margin: 10px 0;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+                    position: relative;
+                    overflow: hidden;
+                    transform-style: preserve-3d;
+                }
 
-    # Display the greeting message in the app
-    st.markdown(f"""
-        <h3 style="text-align: left; color: white; font-family: Arial, sans-serif;">
-            {greeting_message}
-        </h3>
-    """, unsafe_allow_html=True)
-    # Text to Speech Section
-    st.markdown('<h3 style=" color: yellow; font-family: Arial, sans-serif;">Text to Speech (TTS)</h3>', unsafe_allow_html=True)
-    text_message = "Convert your written text into spoken words instantly. Whether it's for accessibility or creative projects, TTS is a powerful tool at your disposal."
+                .stButton > button::before {
+                    content: '';
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 300%;
+                    height: 300%;
+                    background: radial-gradient(circle, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 70%);
+                    transform: translate(-50%, -50%) scale(0);
+                    transition: transform 0.5s ease-out;
+                    pointer-events: none;
+                }
 
-    # Display text message with inline CSS
-    st.markdown(f"""
-        <p style="font-size: 18px; color: white; text-align: justify; font-family: 'Verdana', sans-serif; line-height: 1.6;">
-            {text_message}
-        </p>
-    """, unsafe_allow_html=True)
+                .stButton > button:hover {
+                    background: linear-gradient(135deg, #4B0082, #8A2BE2); /* Brighter gradient on hover */
+                    transform: scale(1.05) translateZ(20px);
+                    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3); /* Enhanced shadow on hover */
+                }
 
-    # Speech to Text Section
-    st.markdown('<h3 style=" color: yellow; font-family: Arial, sans-serif;">Speech to Text (STT)</h3>', unsafe_allow_html=True)
-    stt_message = "Turn your voice into written text with ease. Speech-to-Text technology can be used for transcriptions, voice commands, and more."
-# Display the message with inline CSS
-    st.markdown(f"""
-        <p style="font-size: 18px; color: white; text-align: justify; font-family: 'Verdana', sans-serif; line-height: 1.6;">
-            {stt_message}
-        </p>
-    """, unsafe_allow_html=True)
+                .stButton > button:active {
+                    transform: scale(0.95) translateZ(20px);
+                }
+
+                .stButton > button:hover::before {
+                    transform: translate(-50%, -50%) scale(1);
+                }
+
+                .stButton > button i {
+                    font-size: 32px;
+                    margin-bottom: 10px;
+                }
+                [data-testid="stHeader"], [data-testid="stToolbar"] {
+                    background: rgba(0,0,0,0); /* Hides header */
+                }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        col1, col2 = st.columns(2)
+        with col1:
+            st.image(image_path, width=130)
+        with col2:
+            st.markdown('<h1 style=" color: white; text-align: center; margin-left: -238px; margin-top: 20px; font-family: Arial, sans-serif;">Welcome to WordVibe!</h1>', unsafe_allow_html=True)
+        
+        # Check if user details are available in session state
+        if "user_details" in st.session_state and st.session_state["user_details"] is not None:
+            user_details = st.session_state["user_details"]
+            greeting_message = f"Hello, {user_details['username']}!"
+        else:
+            greeting_message = "Hello, Guest!"
+        st.markdown(f"""
+            <h3 style="text-align: left; color: white; font-family: Arial, sans-serif;">
+                {greeting_message}
+            </h3>
+        """, unsafe_allow_html=True)
+        
+        # Create big square buttons using st.button
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔊 Text to Speech", key="text_to_speech"):
+                st.session_state.selected_card = "Text to Speech"
+                st.rerun()
+        with col2:
+            if st.button("🎤 Speech to Text", key="speech_to_text"):
+                st.session_state.selected_card = "Speech to Text"
+                st.rerun()
+
+        col3, col4 = st.columns(2)
+        with col3:
+            if st.button("📝 Text to Text", key="text_to_text"):
+                st.session_state.selected_card = "Text to Text"
+                st.rerun()
+        with col4:
+            if st.button("📷 Image to Speech", key="image_to_speech"):
+                st.session_state.selected_card = "Image to Speech"
+                st.rerun()
 def show_login_page():
     add_bg_image("https://azure.microsoft.com/es-es/blog/wp-content/uploads/sites/4/2024/02/Azure_Blog_Abstract-07_1260x708-1-1024x575.jpg")
     add_custom_text_styles()
+    add_responsive_css()
     col1, col2 = st.columns(2)
     with col1:
         params = st.query_params
@@ -360,21 +515,21 @@ def show_login_page():
     with col2:
         st.markdown('<h1 style=" color: black; text-align: center; margin-left: -238px; margin-top: 40px; font-family: Arial, sans-serif; ">Welcome to WordVibe!</h1>', unsafe_allow_html=True)
     st.markdown("<h3 style='color: black; font-weight: bold;'>Sign In</h3>",unsafe_allow_html=True)
-    username = st.text_input("Username, Email, or Phone", key="login_username", placeholder="Enter your username or Email or Phone")
+    username = st.text_input("Username", key="login_username", placeholder="Enter your username")
     password = st.text_input("Password", type="password", key="login_password", placeholder="Enter your password")
     # Login button
     if st.button("Login"):
-        st.session_state["show_home_page"] = True
         if username == "" or password == "":
             st.error("Please enter both username and password.")
         else:
-            # Call your authenticate function to check credentials
+            # Call the authenticate function to check credentials
             user_details = authenticate(username, password)
             if user_details:  # Check if authentication was successful
-                st.session_state["show_home_page"] = True
+                # Update session state
                 st.session_state["user_details"] = user_details
                 st.session_state["show_login"] = False
-                st.rerun() 
+                st.session_state["show_home_page"] = True
+                st.rerun()  # Rerun the app to reflect the changes
             else:
                 st.error("Invalid Username or Password.")
 
@@ -503,23 +658,32 @@ SUPPORTED_LANGUAGES = {
 translator = Translator()
 r = sr.Recognizer()
 # Function to convert text to speech
-def text_to_speech(text, language):
+def text_to_speech(text, language, voice_id=None):
     try:
-        tts = gTTS(text=text, lang=language, slow=False)
-        tts.save("output_audio/output.mp3")
-        return "output.mp3"
-    except Exception as e:
-       st.markdown(
-                        """
-                        <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
-                                    padding: 10px; border-radius: 8px; text-align: center; 
-                                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                            Failed to generate audio file.
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-        )
+        engine = pyttsx3.init()
         
+        # Set voice if provided
+        if voice_id:
+            engine.setProperty('voice', voice_id)
+        
+        # Set language (if supported by pyttsx3)
+        engine.setProperty('rate', 150)  # Speed of speech
+        engine.setProperty('volume', 1.0)  # Volume level
+        
+        # Save speech to a file
+        output_file = "output.mp3"
+        engine.save_to_file(text, output_file)
+        engine.runAndWait()
+        
+        return output_file
+    except Exception as e:
+        st.error(f"Error in text-to-speech conversion: {e}")
+        return None
+# Function to get available voices
+def get_available_voices():
+    engine = pyttsx3.init()
+    voices = engine.getProperty('voices')
+    return voices    
 # Function to translate text
 def translate_text(text, source_language, dest_language):
     translator = Translator()
@@ -557,30 +721,39 @@ def speech_to_text(audio_file, language_code):
 # Function to recognize speech from microphone
 def recognize_from_microphone(language_code):
     recognizer = sr.Recognizer()
+    
+    # Adjust recognizer settings for natural pause detection
+    recognizer.pause_threshold = 1.0  # Automatically detects a pause in speech
+    recognizer.energy_threshold = 400  # Adjust this based on microphone sensitivity
+
     with sr.Microphone() as source:
         st.markdown(
-                """
-                    <div style="font-size: 18px; color: #fff; background-color: rgb(30, 9, 150); 
-                            padding: 20px; border-radius: 8px; 
-                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                        Adjusting for ambient noise... Please wait.
-                    </div>
-                """,
-                unsafe_allow_html=True
-                )
-        recognizer.adjust_for_ambient_noise(source, duration=1)
+            """
+                <div style="font-size: 18px; color: #fff; background-color: rgb(30, 9, 150); 
+                        padding: 20px; border-radius: 8px; 
+                        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                    Adjusting for ambient noise... Please wait.
+                </div>
+            """,
+            unsafe_allow_html=True
+        )
+        recognizer.adjust_for_ambient_noise(source, duration=1)  # Adapt to background noise
+        
         st.markdown(
-                """
-                    <div style="font-size: 18px; color: #fff; background-color: rgb(30, 9, 150); 
-                            padding: 20px; border-radius: 8px; margin-top: 15px;
-                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                        Listening... Please speak into the microphone.
-                    </div>
-                """,
-                unsafe_allow_html=True
-                )
+            """
+                <div style="font-size: 18px; color: #fff; background-color: rgb(30, 9, 150); 
+                        padding: 20px; border-radius: 8px; margin-top: 15px;
+                        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                    Listening... Please speak into the microphone.
+                </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
         try:
-            audio_data = recognizer.listen(source, timeout=10, phrase_time_limit=15)
+            # Listen indefinitely until user stops speaking (No time limits)
+            audio_data = recognizer.listen(source)  
+            
             st.markdown(
                 """
                     <div style="font-size: 18px; color: #fff; background-color: rgb(30, 9, 150); 
@@ -591,26 +764,27 @@ def recognize_from_microphone(language_code):
                 """,
                 unsafe_allow_html=True
             )
+
+            # Recognize speech using Google Web Speech API
             text = recognizer.recognize_google(audio_data, language=language_code)
             return text
+        
         except sr.UnknownValueError:
             st.markdown(
                 """
                 <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
                             padding: 20px; border-radius: 8px; margin-top: 15px; 
                             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                    Could not understand the audio
+                    Could not understand the audio. Please try again.
                 </div>
                 """,
                 unsafe_allow_html=True
             )
+        
         except sr.RequestError as e:
             st.error(f"Could not request results from Google Web Speech API; {e}")
+
     return None
- # Function to save uploaded audio file to wav formatif "show_home_without_login" not in st.session_state:
-    st.session_state["show_home_without_login"] = False
-    if st.session_state.get("show_home_without_login", False):
-        show_without_login_home_page()
 def save_uploaded_file(uploaded_file):
     if uploaded_file is not None:
         audio_format = uploaded_file.name.split('.')[-1].lower()
@@ -622,20 +796,22 @@ def save_uploaded_file(uploaded_file):
     return None
 def show_text_to_speech():
     add_bg_image("https://static.vecteezy.com/system/resources/previews/024/461/751/non_2x/abstract-gradient-green-blue-liquid-wave-background-free-vector.jpg")
-
+    st.markdown("""
+        <style>
+        /* Small Screens: Mobile Phones (Max 640px) */
+        @media (max-width: 640px) {
+            h1 {
+                font-size: 23px !important;
+                text-align: center !important;
+            }
+        }
+        </style>
+    """, unsafe_allow_html=True)
     # Ensure the user is logged in
-    if "user_details" not in st.session_state:
-        st.markdown(
-            """
-            <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
-                        padding: 10px; border-radius: 8px; text-align: center; 
-                        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                You must log in to access the Speech to Text page.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        return
+    if "user_details" in st.session_state and st.session_state["user_details"] is not None:
+        languages = SUPPORTED_LANGUAGES
+    else:
+        languages = LIMITED_LANGUAGES
 
     st.markdown(
         """
@@ -715,8 +891,8 @@ def show_text_to_speech():
 
     # Input fields
     text_input = st.text_area("Enter the text you want to convert to speech:")
-    input_language = st.selectbox("Select the input language for text recognition:", list(SUPPORTED_LANGUAGES.keys()))
-    output_language = st.selectbox("Select the output language for translation:", list(SUPPORTED_LANGUAGES.keys()))
+    input_language = st.selectbox("Select the input language for text recognition:", list(languages.keys()))
+    output_language = st.selectbox("Select the output language for translation:", list(languages.keys()))
 
     # Convert to Speech button
     if st.button("Convert to Speech"):
@@ -738,21 +914,36 @@ def show_text_to_speech():
                         <div style="font-size: 18px; color: #fff; background-color: rgba(7, 228, 36, 0.88); 
                                     padding: 10px; border-radius: 8px; 
                                     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                            Text translated and converted to speech in '{output_language}
+                            Text translated and converted to speech in '{output_language}'
                         </div>
                         """,
                         unsafe_allow_html=True
-                    ) 
-            else:
-                st.markdown(
+                    )
+                    # Save TTS history if logged in
+                    if "user_details" in st.session_state and st.session_state["user_details"] is not None:
+                        username = st.session_state["user_details"]["username"]
+                        save_tts_history(username, text_input, input_language, output_language)
+                else:
+                    st.markdown(
                         """
                         <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
                                     padding: 10px; border-radius: 8px; text-align: center; 
                                     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                            Translation failed. Please check the input language.
+                            Failed to generate audio file.
                         </div>
                         """,
                         unsafe_allow_html=True
+                    )
+            else:
+                st.markdown(
+                    """
+                    <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
+                                padding: 10px; border-radius: 8px; text-align: center; 
+                                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                        Translation failed. Please check the input language.
+                    </div>
+                    """,
+                    unsafe_allow_html=True
                 )
         else:
             st.markdown(
@@ -765,14 +956,35 @@ def show_text_to_speech():
                 """,
                 unsafe_allow_html=True
             )
-
+    # Display TTS history if logged in
+    if "user_details" in st.session_state and st.session_state["user_details"] is not None:
+        st.markdown('<h3 style="font-size: 30px; color: white; text-align: center;">TTS History</h3>', unsafe_allow_html=True)
+        conn = sqlite3.connect(DB_FILE)
+        tts_history_df = pd.read_sql_query(f'''
+            SELECT input_text, input_language, output_language, timestamp 
+            FROM tts_history 
+            WHERE username = "{st.session_state["user_details"]["username"]}"
+            ORDER BY timestamp DESC
+        ''', conn)
+        conn.close()
+        st.dataframe(tts_history_df)
+    else:
+         st.markdown(
+                """
+                <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
+                            padding: 10px; border-radius: 8px; text-align: center; margin-top: 10px; 
+                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                    You must be logged in to Save & view TTS history.
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 def translate_text(text, source_language, target_language):
     """
     Translates text from the source language to the target language.
     """
     result = translator.translate(text, src=source_language, dest=target_language)
     return result.text
-# Function to split audio into chunks
 def split_audio(audio_segment, chunk_length):
     """
     Splits an audio segment into smaller chunks of given length (in milliseconds).
@@ -811,76 +1023,261 @@ if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 # Save the uploaded audio to the specified folder
 # Initialize SQLite connection (or create database if not exists)
+LIMITED_LANGUAGES = {
+    "English": "en",
+    "Spanish": "es",
+    "Hindi": "hi",
+    "Bengali": "bn",
+    "German": "de"
+}
+def show_text_to_text_translation():
+    # Modern Minimalist CSS with Gradient Background
+    add_bg_image("https://static.vecteezy.com/system/resources/previews/024/461/751/non_2x/abstract-gradient-green-blue-liquid-wave-background-free-vector.jpg")
+    
+    # Custom CSS for a modern and attractive design
+    st.markdown(
+        """
+        <style>
+            /* Page Background */
+            body {
+                background: linear-gradient(to right, #283c86, #45a247);
+                color: white;
+                font-family: 'Arial', sans-serif;
+            }
+            /* Input Fields */
+            .stTextInput, .stSelectbox {
+                background: rgba(255, 255, 255, 0.2);
+                border: 1px solid #00c896;
+                border-radius: 8px;
+                padding: 10px;
+                font-size: 16px;
+                color: white !important;
+                margin-bottom: 15px;
+            }
 
-def show_speech_to_text():
-    add_bg_image("https://static.vecteezy.com/system/resources/previews/023/669/544/non_2x/abstract-gradient-green-blue-liquid-wave-background-free-vector.jpg")
+            /* Translated Text Box */
+            .translated-box {
+                background: rgba(255, 255, 255, 0.9);
+                padding: 20px;
+                border-radius: 10px;
+                border: 1px solid #00c896;
+                font-size: 20px;
+                color: black;
+                text-align: center;
+                font-weight: bold;
+                margin-top: 20px;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            }
 
-    # Check if the user is logged in
-    if "user_details" not in st.session_state:
+            /* Button Styling */
+            .stButton button {
+                background-color: #00c896;
+                color: white;
+                font-weight: bold;
+                border: none;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-size: 16px;
+                cursor: pointer;
+                transition: background-color 0.3s, transform 0.2s;
+            }
+
+            .stButton button:hover {
+                background-color: #009e7a;
+                transform: scale(1.05);
+            }
+
+            /* Title Styling */
+            .title {
+                font-size: 40px;
+                font-weight: bold;
+                color: #fffff;
+                text-align: center;
+                margin-bottom: 20px;
+            }
+
+            /* Subtitle Styling */
+            .subtitle {
+                font-size: 20px;
+                color: #333;
+                text-align: center;
+                margin-bottom: 30px;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Page Title
+    st.markdown(
+        '<h1 class="title" style="color: white; font-size: 40px; text-align: center; font-weight: bold;">🌍 Simple Text Translator</h1>', 
+        unsafe_allow_html=True
+    )
+    # Centered Container
+    st.markdown('<div class="main-container">', unsafe_allow_html=True)
+    # Input Fields
+    input_lang = st.selectbox("From Language", list(SUPPORTED_LANGUAGES.keys()))
+    output_lang = st.selectbox("To Language", list(SUPPORTED_LANGUAGES.keys()))
+    input_text = st.text_input("Type text to translate:", placeholder="Enter your text here...")
+
+    # Translate Button
+    if st.button("Translate", key="translate_button"):
+        if input_text:
+            translated_text = translate_text(input_text, SUPPORTED_LANGUAGES[input_lang], SUPPORTED_LANGUAGES[output_lang])
+            st.markdown(
+                f"""
+                <div class="translated-box">
+                    <strong>📝 Translated Text:</strong><br><br>
+                    {translated_text}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                """
+                <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
+                            padding: 10px; border-radius: 8px; text-align: center; 
+                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                    Please enter some text to translate.
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    # Close the container
+    st.markdown('</div>', unsafe_allow_html=True)
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+def show_image_to_text_to_speech():
+    add_bg_image("https://static.vecteezy.com/system/resources/previews/024/461/751/non_2x/abstract-gradient-green-blue-liquid-wave-background-free-vector.jpg")
+
+    st.markdown('<h1 style="font-size: 40px; color: white; text-align: center;">🖼️ Image to Text-to-Speech</h1>', unsafe_allow_html=True)
+
+    uploaded_image = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
+
+    if uploaded_image:
+        image = Image.open(uploaded_image)
+        st.image(image, use_container_width=True)  # Updated parameter
+        
+        # Styled Caption Below the Image
         st.markdown(
             """
-            <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
-                        padding: 10px; border-radius: 8px; text-align: center; 
-                        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                You must log in to access the Speech to Text page.
-            </div>
+            <p style="
+                text-align: center; 
+                font-size: 18px; 
+                font-weight: bold; 
+                color: #ffffff; 
+                background-color: rgba(0, 0, 0, 0.6); 
+                padding: 8px; 
+                border-radius: 8px;
+                display: inline-block;">
+                📷 Uploaded Image
+            </p>
             """,
             unsafe_allow_html=True
         )
-        return
 
-    username = st.session_state["user_details"]["username"]
+        extracted_text = pytesseract.image_to_string(image)
+
+        # Enhanced Extracted Text Display with Better Design
+        st.markdown(
+            f"""
+            <div style="
+                background-color: #262626; 
+                color: #ffffff; 
+                padding: 20px; 
+                border-radius: 12px; 
+                font-size: 20px; 
+                font-family: 'Arial', sans-serif;
+                margin-top: 15px;
+                box-shadow: 2px 2px 15px rgba(255, 255, 255, 0.2);
+                text-align: justify;
+                line-height: 1.6;">
+                <strong style="font-size: 22px; text-decoration: underline;">Extracted Text:</strong>
+                <p style="margin-top: 10px; font-size: 10px; padding: 10px; background: rgba(255, 255, 255, 0.1); border-radius: 8px;">
+                    {extracted_text}
+               </p>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # Space between Extracted Text & Button
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        if st.button("🔊 Convert to Speech", key="tts_button"):
+            output_file = text_to_speech(extracted_text, "en")
+            if output_file:
+                st.audio(output_file, format="audio/mp3")
+def show_speech_to_text():
+    add_bg_image("https://static.vecteezy.com/system/resources/previews/023/669/544/non_2x/abstract-gradient-green-blue-liquid-wave-background-free-vector.jpg")
+    # Check if the user is logged in
+    st.markdown("""
+        <style>
+        /* Small Screens: Mobile Phones (Max 640px) */
+        @media (max-width: 640px) {
+            h1 {
+                font-size: 23px !important;
+                text-align: center !important;
+            }
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    if "user_details" in st.session_state and st.session_state["user_details"] is not None:
+        languages = list(SUPPORTED_LANGUAGES.items())
+    else:
+        languages = list(LIMITED_LANGUAGES.items())
 
     st.markdown('<h1 style="font-size: 50px; font-weight: 900; color: orange; text-align: center; font-family: Arial, sans-serif;">🎤 Multilingual Speech to Text with Translation</h1>', unsafe_allow_html=True)
     st.markdown("""
-    <style>
-        h3 {
-            color: white;     
-        }
-        
-        
-        .stSelectbox {
-            background-color: #f0f0f0; /* Background color for selectbox */
-            border: 2px solid #007bff; /* Border color for selectbox */
-            border-radius: 10px; /* Rounded corners */
-            padding: 10px; /* Padding inside the selectbox */
-            color: #333; /* Text color inside the selectbox */
-        }
-        .stSelectbox select {
-            background-color: #fff; /* Background color for the dropdown */
-            border: none; /* No border for the dropdown */
-            border-radius: 5px; /* Rounded corners for dropdown */
-            padding: 5px; /* Padding inside the dropdown */
-            font-size: 16px; /* Font size */
-            color: #333; /* Text color inside the dropdown */
-        }
-        .stSelectbox select:focus {
-            outline: none; /* Remove outline when focused */
-            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5); /* Shadow effect when focused */
-        }
-        .stFileUploader {
-            background-color: #f0f0f0; /* Background color */
-                border: 2px dashed #007bff; /* Border color */
+        <style>
+            h3 {
+                color: white;     
+            }
+            
+            .stSelectbox {
+                background-color: #f0f0f0; /* Background color for selectbox */
+                border: 2px solid #007bff; /* Border color for selectbox */
                 border-radius: 10px; /* Rounded corners */
-                padding: 20px; /* Padding inside the box */
-                text-align: center; /* Center the text */
-                color: #007bff; /* Text color */
-                font-size: 18px; /* Font size */
-        }
-        .stFileUploader:hover {
-            background-color: #e0e0e0; /* Background color on hover */
-            border-color: #0056b3; /* Border color on hover */
-        }
-    </style>
+                padding: 10px; /* Padding inside the selectbox */
+                color: #333; /* Text color inside the selectbox */
+            }
+            .stSelectbox select {
+                background-color: #fff; /* Background color for the dropdown */
+                border: none; /* No border for the dropdown */
+                border-radius: 5px; /* Rounded corners for dropdown */
+                padding: 5px; /* Padding inside the dropdown */
+                font-size: 16px; /* Font size */
+                color: #333; /* Text color inside the dropdown */
+            }
+            .stSelectbox select:focus {
+                outline: none; /* Remove outline when focused */
+                box-shadow: 0 0 5px rgba(0, 123, 255, 0.5); /* Shadow effect when focused */
+            }
+            .stFileUploader {
+                background-color: #f0f0f0; /* Background color */
+                    border: 2px dashed #007bff; /* Border color */
+                    border-radius: 10px; /* Rounded corners */
+                    padding: 20px; /* Padding inside the box */
+                    text-align: center; /* Center the text */
+                    color: #007bff; /* Text color */
+                    font-size: 18px; /* Font size */
+            }
+            .stFileUploader:hover {
+                background-color: #e0e0e0; /* Background color on hover */
+                border-color: #0056b3; /* Border color on hover */
+            }
+        </style>
     """, unsafe_allow_html=True)
-
-    # Language selection
-    languages = list(SUPPORTED_LANGUAGES.items())
+    # Input fields
     input_language = st.selectbox("Select the input language for speech recognition:", languages, key="input_language")
     output_language = st.selectbox("Select the output language for translation:", languages, key="output_language")
 
     # Input method selection
-    input_choice = st.selectbox("Choose input method:", ["Upload audio file", "Record live voice"])
+    input_choice = st.selectbox("Choose input method:", ["Record live voice", "Upload audio file"])
+
+    # Initialize transcript and translated_text
+    transcript = ""
+    translated_text = ""
 
     # Handling audio file upload
     if input_choice == "Upload audio file":
@@ -909,58 +1306,67 @@ def show_speech_to_text():
                     for i, chunk in enumerate(chunks):
                         chunk_file_path = os.path.join(output_folder, f"chunk_{i}.wav")
                         chunk.export(chunk_file_path, format="wav")
-                        transcript += transcribe_audio(chunk_file_path, input_language[1]) + "\n"
+                        recognized_text = transcribe_audio(chunk_file_path, input_language[1])
+                        if recognized_text:  # Only append non-empty recognized text
+                            transcript += recognized_text + " "  # Add a space between chunks
 
-                    translated_text = translate_text(transcript, input_language[1], output_language[1])
-                    st.markdown(
-                        """
-                        <div style="font-size: 23px; color: #fff; background-color: rgba(7, 228, 36, 0.88); 
-                                padding: 20px; border-radius: 8px;
-                                margin-top: 20px; 
-                                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                                Audio Processed Successfully!
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-                    st.markdown(
-                        f"""
-                        <style>
-                            .transcript {{
-                                font-size: 18px;
-                                font-weight: bold;
-                                color: #4CAF50;
-                                background-color: #F0F8FF;
-                                padding: 10px;
-                                border-radius: 5px;
-                            }}
-                            .translated {{
-                                font-size: 18px;
-                                font-weight: bold;
-                                color: #FF5722;
-                                background-color: #FFF3E0;
-                                padding: 10px;
-                                border-radius: 5px;
-                            }}
-                        </style>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                    if transcript:  # Check if transcript is not empty
+                        translated_text = translate_text(transcript, input_language[1], output_language[1])
+                        st.markdown(
+                            """
+                            <div style="font-size: 23px; color: #fff; background-color: rgba(7, 228, 36, 0.88); 
+                                    padding: 20px; border-radius: 8px;
+                                    margin-top: 20px; 
+                                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                                    Audio Processed Successfully!
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+                        st.text_area("Transcript", value=transcript, height=200)  # Display transcript in a text area
+                        st.markdown(f'''<p class="translated">🌍 **Translated Text:** {translated_text}</p>''', unsafe_allow_html=True)
 
-                    st.markdown(f'''<p class="transcript">📜 **Transcript:** {transcript}</p>''', unsafe_allow_html=True)
-                    st.markdown(f'''<p class="translated">🌍 **Translated Text:** {translated_text}</p>''', unsafe_allow_html=True)
+                        # Save STT history if transcript and translated_text are available
+                        if transcript and translated_text:
+                            if "user_details" in st.session_state and st.session_state["user_details"] is not None:
+                                username = st.session_state["user_details"]["username"]
+                                save_stt_history(username, input_language[1], output_language[1], transcript, translated_text)
+                            else:
+                                st.markdown(
+                                    """
+                                    <div style="font-size: 23px; color: #fff; background-color: rgba(247, 14, 14, 0.88); 
+                                            padding: 20px; border-radius: 8px;
+                                            margin-top: 30px; 
+                                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                                            You must be logged in to save history.
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
+                    else:
+                        st.markdown(
+                            """
+                            <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
+                                    padding: 10px; border-radius: 8px; text-align: center; 
+                                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                                No transcript available. Please try again.
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
 
                 else:
                     st.markdown(
                         """
                         <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
-                                    padding: 10px; border-radius: 8px; text-align: center; 
-                                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                                padding: 10px; border-radius: 8px; text-align: center; 
+                                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
                             Please upload an audio file.
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
+
     # Handling live voice recording
     elif input_choice == "Record live voice":
         if st.button("Start Recording"):
@@ -989,17 +1395,50 @@ def show_speech_to_text():
                     """,
                     unsafe_allow_html=True
                 )
+
+                # Save STT history if recognized text and translated text are available
+                if recognized_text and translated_text:
+                    if "user_details" in st.session_state and st.session_state["user_details"] is not None:
+                        username = st.session_state["user_details"]["username"]
+                        save_stt_history(username, input_language[1], output_language[1], recognized_text, translated_text)
+                    else:
+                        st.markdown(
+                            """
+                            <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
+                                    padding: 10px; border-radius: 8px; text-align: center;
+                                    margin-top: 20px; 
+                                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                                You must be logged in to view TTS history.
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
             else:
                 st.markdown(
-                        """
-                        <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
-                                    padding: 20px; border-radius: 8px; margin-top: 15px; 
-                                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                            Speech recognition failed. Please try again.
-                        </div>
-                        """,
-                        unsafe_allow_html=True
+                    """
+                    <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
+                            padding: 20px; border-radius: 8px; margin-top: 15px; 
+                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                        Speech recognition failed. Please try again.
+                    </div>
+                    """,
+                    unsafe_allow_html=True
                 )
+
+    # Display STT history if logged in
+    if "user_details" in st.session_state and st.session_state["user_details"] is not None:
+        st.markdown('<h3 style="font-size: 30px; color: white; text-align: center;">STT History</h3>', unsafe_allow_html=True)
+        conn = sqlite3.connect(DB_FILE)
+        stt_history_df = pd.read_sql_query(f'''
+            SELECT input_language, output_language, transcript, translated_text, timestamp 
+            FROM stt_history 
+            WHERE username = "{st.session_state["user_details"]["username"]}"
+            ORDER BY timestamp DESC
+        ''', conn)
+        conn.close()
+
+        # Display the DataFrame in the app
+        st.dataframe(stt_history_df)
 friendly_faq_knowledge_base = {
     "Hello! How are you?": [
         "I'm just a computer program, but I'm here to help you! How can I assist you today?"
@@ -1127,28 +1566,33 @@ def chatbot_response(user_input):
     return "I'm sorry, I didn't understand that. Please ask about features like Text to Speech or Speech to Text."
 def show_help_page():
     add_bg_image("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRMbPuKBpyPFBWdo9-8bse0SM3GzlkWasC-Vw&usqp=CAU")
-    if "user_details" not in st.session_state:
+
+    # Check if the user is logged in
+    if "user_details" not in st.session_state or st.session_state["user_details"] is None:
         st.markdown(
             """
             <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
                         padding: 10px; border-radius: 8px; text-align: center; 
                         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                You must log in to access the Speech to Text page.
+                You must log in to access the Help & Support page.
             </div>
             """,
             unsafe_allow_html=True
         )
-        return
+        return  # Exit the function if the user is not logged in
+
+    # If the user is logged in, display the Help & Support page
     st.markdown(
-    """
-    <h1 style="font-size: 50px; color: black; text-align: center; 
-                margin-bottom: 20px; font-weight: bold;">
-        Help & Support
-    </h1>
-    """,
-    unsafe_allow_html=True
+        """
+        <h1 style="font-size: 50px; color: black; text-align: center; 
+                    margin-bottom: 20px; font-weight: bold;">
+            Help & Support
+        </h1>
+        """,
+        unsafe_allow_html=True
     )
-# Display the message with inline CSS
+
+    # Display the message with inline CSS
     st.markdown(
         """
         <div style="font-size: 22px; color: black; text-align: left; 
@@ -1158,19 +1602,27 @@ def show_help_page():
         """,
         unsafe_allow_html=True
     )
+
     # Initialize chat history in session state
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
+
     # User input
     st.markdown('<h6 style=" color: black; font-weight: 600; font-family: Arial, sans-serif;">You:</h6>', unsafe_allow_html=True)
-    user_input = st.text_input("", key="user_input", 
-                                help="Type your message here.", 
-                                placeholder="Type your message...", 
-                                label_visibility="visible", 
-                                max_chars=500, 
-                                disabled=False)
+    user_input = st.text_input(
+        "", 
+        key="user_input", 
+        help="Type your message here.", 
+        placeholder="Type your message...", 
+        label_visibility="visible", 
+        max_chars=500, 
+        disabled=False
+    )
+
     # Apply custom CSS class to the input
     st.markdown("<style>.stTextInput > div > input { class: custom-input; }</style>", unsafe_allow_html=True)
+
+    # Handle the "Send" button click
     if st.button("Send"):
         if user_input:
             # Store user input in chat history
@@ -1183,6 +1635,7 @@ def show_help_page():
             user_input = ""  
         else:
             st.warning("Please enter your doubt.")
+
     # Display chat history in a structured format
     st.markdown('<h3 style=" color: black; font-family: Arial, sans-serif;">Chat History</h3>', unsafe_allow_html=True)
     for index, chat in enumerate(st.session_state.chat_history):
@@ -1197,20 +1650,21 @@ def show_help_page():
                     f"<div style='text-align: right; padding: 5px; border-radius: 5px; background-color: #ffe0b2; color: black;'><b>{chat['sender']}:</b> {chat['message']}</div>", 
                     unsafe_allow_html=True
                 )
+
     # Clear All button
     if st.button("Clear All"):
         st.session_state.chat_history.clear()
         st.markdown(
             f"""
-                 <div style="font-size: 23px; color: black; background-color: rgba(7, 228, 36, 0.88); 
-                    padding: 20px; border-radius: 8px;
-                    margin-top: 20px; 
-                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                    Chat History Cleared
-                </div>
+            <div style="font-size: 23px; color: black; background-color: rgba(7, 228, 36, 0.88); 
+                        padding: 20px; border-radius: 8px;
+                        margin-top: 20px; 
+                        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                Chat History Cleared
+            </div>
             """,
             unsafe_allow_html=True
-            )
+        )
         st.rerun()
 def show_account_page():
     add_bg_image("https://www.pixelstalk.net/wp-content/uploads/2016/10/Free-blue-green-wallpaper-HD.jpg")
@@ -1247,7 +1701,7 @@ def show_account_page():
         unsafe_allow_html=True
     )
 # Check if user details are in session state
-    if "user_details" in st.session_state:
+    if "user_details" in st.session_state and st.session_state["user_details"] is not None:
         user_details = st.session_state["user_details"]
         # Display user details with inline CSS
         st.markdown(
@@ -1321,11 +1775,16 @@ def show_account_page():
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
     st.session_state["username"] = None  # Initialize username
+# Initialize session state for sidebar state and selected card
 if "sidebar_state" not in st.session_state:
-        st.session_state.sidebar_state = True
+    st.session_state.sidebar_state = True
+if "selected_card" not in st.session_state:
+    st.session_state.selected_card = None
+
 def sidebar():
     add_sidebar_image("https://img.freepik.com/free-vector/background-banner-colorful-gradient_677411-3588.jpg?t=st=1728405915~exp=1728409515~hmac=25391513b16dfb58596f5207d16dc1e5f38f218d978d62e23aab6f9a243d9b74&w=360")
     st.session_state.sidebar_state = not st.session_state.sidebar_state
+
     def sidebar_toggle_button():
         icon = "⬅️" if st.session_state.sidebar_state else "➡️"  # Icon change
         st.markdown(f"""
@@ -1365,58 +1824,77 @@ def sidebar():
 
     # Call the function to display the toggle button
     sidebar_toggle_button()
+
     st.sidebar.markdown(
-    f"""
-    <div style="text-align: center; margin-top: -20px;">
-       <h4 style="color: black !important; font-size: 30px; font-weight: 900; margin-top: 10px">WordVibe</h4>
-        <img src="data:image/png;base64,{logo_image}" style="width: 75%; max-width: 150px; margin-top: -25px;" />
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+        f"""
+        <div style="text-align: center; margin-top: -20px;">
+           <h4 style="color: black !important; font-size: 30px; font-weight: 900; margin-top: 10px">WordVibe</h4>
+            <img src="data:image/png;base64,{logo_image}" style="width: 75%; max-width: 150px; margin-top: -25px;" />
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
     st.sidebar.markdown(
         """
         <style>
         p {
-            font-size: 20px;
-            font-weight: 900;
-         }
-         .sidebar-radio {
-            margin-top: -25px;
-         }
-        
+            font-size: 20px !important;
+            font-weight: 900 !important;
+        }
+        .sidebar-radio {
+            margin-top: 10px;
+        }
         </style>
         """,
         unsafe_allow_html=True
     )
-    
+
     # Sidebar content
     st.sidebar.markdown('<div class="sidebar-radio">', unsafe_allow_html=True)
 
     # Radio button selection
     selected_page = st.sidebar.radio("Menu", 
-                                    ["🏠 Home", 
-                                        "📝 Speech to Text", 
-                                        "🔊 Text to Speech", 
-                                        "👤 Account", 
-                                        "❓ Help",
-                                        "📞Contact us"], 
-                                    key="sidebar_navigation")
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)                     
+                                ["🏠 Home", 
+                                 "👤 Account", 
+                                 "❓ Help",
+                                 "📞Contact us"], 
+                                key="sidebar_navigation")
+    st.sidebar.markdown('<div class="sidebar-radio">', unsafe_allow_html=True)
+
+    if selected_page != "🏠 Home":
+        st.session_state.selected_card = None
+    
+    # Show remaining cards in the sidebar if a card is selected and "Home" is selected
+    if selected_page == "🏠 Home" and st.session_state.selected_card is not None:
+        st.sidebar.markdown(
+            '<h3 style="font-size: 20px; font-weight: bold; color: #33006F; margin-top: -30px;">Other Cards</h3>', 
+            unsafe_allow_html=True
+        )
+        if st.session_state.selected_card != "Text to Speech":
+            if st.sidebar.button("Text to Speech"):
+                st.session_state.selected_card = "Text to Speech"
+                st.rerun()
+        if st.session_state.selected_card != "Speech to Text":
+            if st.sidebar.button("Speech to Text"):
+                st.session_state.selected_card = "Speech to Text"
+                st.rerun()
+        if st.session_state.selected_card != "Text to Text":
+            if st.sidebar.button("Text to Text"):
+                st.session_state.selected_card = "Text to Text"
+                st.rerun()
+        if st.session_state.selected_card != "Image to Speech":
+            if st.sidebar.button("Image to Speech"):
+                st.session_state.selected_card = "Image to Speech"
+                st.rerun()
     st.sidebar.markdown(
-    """
-        <h3 style='color: #000; font-size: 20px; margin-top: -25px;'>Guided by Mr.Abdul Aziz Md</h3>
-        
-        
-    """,
-    unsafe_allow_html=True
+        """
+        <h3 style='color: #000; font-size: 20px; margin-top: -20px;'>Guided by Mr.Abdul Aziz Md</h3>
+        """,
+        unsafe_allow_html=True
     )
     if selected_page == "🏠 Home":
         show_home_page()  # Define this function
-    elif selected_page == "📝 Speech to Text":
-        show_speech_to_text()  # Define this function
-    elif selected_page == "🔊 Text to Speech":
-        show_text_to_speech()  # Define this function
     elif selected_page == "👤 Account":
         show_account_page()  # Define this function
     elif selected_page == "❓ Help":
@@ -1445,6 +1923,9 @@ def sidebar():
             }
             h2 h4, h5 {
                 color: #FFDD00; /* Distinct gold color for subheadings */
+            }
+            p {
+                font-size: 18px !important;
             }
             .highlight-email {
                 font-size: 20px;
@@ -1482,6 +1963,7 @@ def sidebar():
         ]
         df = pd.DataFrame(data, columns=["Position","Name", "Phone Number","E-Mail"])
         st.table(df)  # Define this function
+
 # Entry point of the Streamlit app
 if __name__ == "__main__":
     # Initialize database (define init_db function)
