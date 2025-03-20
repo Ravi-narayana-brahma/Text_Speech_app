@@ -6,6 +6,9 @@ easyocr
 bcrypt
 SpeechRecognition
 gTTS
+torch==2.6.0
+torchvision==0.21.0
+ffmpeg
 googletrans==4.0.0-rc1
 streamlit-webrtc
 pyttsx3
