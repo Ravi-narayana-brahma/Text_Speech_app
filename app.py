@@ -1225,7 +1225,7 @@ def show_speech_to_text():
     output_language = st.selectbox("Select the output language for translation:", languages, key="output_language")
 
     # Input method selection
-    input_choice = st.selectbox("Choose input method:", ["Upload audio file", "Record live voice"])
+    input_choice = st.selectbox("Choose input method:", ["Upload audio file"])
 
     # Initialize transcript and translated_text
     transcript = ""
@@ -1299,7 +1299,8 @@ def show_speech_to_text():
                         st.markdown(
                             """
                             <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
-                                    padding: 10px; border-radius: 8px; text-align: center; 
+                                    padding: 10px; border-radius: 8px; text-align: center;
+                                    margin-top: 10px;
                                     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
                                 No transcript available. Please try again.
                             </div>
