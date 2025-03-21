@@ -721,71 +721,27 @@ def speech_to_text(audio_file, language_code):
     except sr.RequestError as e:
         st.error(f"Could not request results from Google Web Speech API; {e}")
         return None
-def recognize_from_microphone(language_code):
+def recognize_from_microphone(language_code="en-US"):
     recognizer = sr.Recognizer()
-    try:
-        with sr.AudioFile(audio_path) as source:
-            audio = recognizer.record(source)
-        text = recognizer.recognize_google(audio, language=language_code)
-        return text
-    except sr.UnknownValueError:
-        return "Could not understand the audio."
-    except sr.RequestError:
-        return "Error with Google Speech API."
-
-# JavaScript to record audio
-js_code = """
-<script>
-    let mediaRecorder;
-    let audioChunks = [];
     
-    function startRecording() {
-        navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-            mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.start();
-            audioChunks = [];
+    with sr.Microphone() as source:
+        st.info("🎤 Adjusting for ambient noise, please wait...")
+        recognizer.adjust_for_ambient_noise(source, duration=1)
+        
+        st.info("🎤 Listening... Please speak into the microphone.")
+        try:
+            audio_data = recognizer.listen(source, timeout=10, phrase_time_limit=15)
             
-            mediaRecorder.ondataavailable = event => {
-                audioChunks.push(event.data);
-            };
-            
-            mediaRecorder.onstop = () => {
-                let audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                let reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
-                reader.onloadend = () => {
-                    let base64data = reader.result.split(',')[1];
-                    window.parent.postMessage({ type: 'audio', data: base64data }, '*');
-                };
-            };
-        });
-    }
+            st.info("🔄 Processing audio...")
+            text = recognizer.recognize_google(audio_data, language=language_code)
+            return text
+        
+        except sr.UnknownValueError:
+            st.error("😕 Could not understand the audio. Try speaking clearly.")
+        except sr.RequestError as e:
+            st.error(f"⚠️ Could not request results from Google Web Speech API; {e}")
     
-    function stopRecording() {
-        mediaRecorder.stop();
-    }
-</script>
-
-<button onclick="startRecording()">🎤 Start Recording</button>
-<button onclick="stopRecording()">⏹️ Stop Recording</button>
-"""
-
-st.components.v1.html(js_code, height=100)
-
-# Receive and decode audio data
-if "audio_data" in st.session_state:
-    audio_base64 = st.session_state.audio_data
-    audio_bytes = base64.b64decode(audio_base64)
-    
-    with open("temp_audio.wav", "wb") as f:
-        f.write(audio_bytes)
-
-    st.audio("temp_audio.wav", format="audio/wav")
-
-    # Process and recognize text
-    recognized_text = recognize_from_audio_file("temp_audio.wav")
-    st.write("Recognized Text:", recognized_text)
+    return None
 def save_uploaded_file(uploaded_file):
     if uploaded_file is not None:
         audio_format = uploaded_file.name.split('.')[-1].lower()
