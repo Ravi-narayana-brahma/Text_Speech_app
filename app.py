@@ -479,6 +479,21 @@ def show_home_page():
             """,
             unsafe_allow_html=True
         )
+        meta_tags = """
+        <script>
+        document.title = "WordVibe - Text to Speech & Speech to Text";
+        const metaDesc = document.createElement('meta');
+        metaDesc.name = "description";
+        metaDesc.content = "WordVibe - Convert text to speech and speech to text effortlessly. Supports multiple languages!";
+        document.head.appendChild(metaDesc);
+        
+        const metaKeywords = document.createElement('meta');
+        metaKeywords.name = "keywords";
+        metaKeywords.content = "Text to Speech, Speech to Text, WordVibe, AI Voice Generator, TTS App, STT Converter";
+        document.head.appendChild(metaKeywords);
+        </script>
+        """
+        st.components.v1.html(meta_tags, height=0)
         col1, col2 = st.columns(2)
         with col1:
             st.image(image_path, width=130)
