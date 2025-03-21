@@ -480,6 +480,7 @@ def show_home_page():
             unsafe_allow_html=True
         )
         meta_tags = """
+        <meta name="google-site-verification" content="vk5boqMO8XMBIRc9yRSbdNSHymVLGRpr4Gp_ZlvCCTI" />
         <script>
         document.title = "WordVibe - Text to Speech & Speech to Text";
         const metaDesc = document.createElement('meta');
