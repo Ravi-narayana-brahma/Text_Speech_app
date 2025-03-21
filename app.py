@@ -26,6 +26,17 @@ from email.mime.text import MIMEText
 from streamlit_webrtc import webrtc_streamer, WebRtcMode
 from email.mime.multipart import MIMEMultipart
 st.set_page_config(page_title="Word Vibe", page_icon="assests/images/icon.jpg")
+st.markdown("""
+    <head>
+        <title>WordVibe - AI Text to Speech & Speech to Text</title>
+        <meta name="description" content="Convert text to speech and speech to text using AI. Supports multiple languages and instant voice conversion.">
+        <meta name="keywords" content="text to speech, speech to text, AI voice converter, online translator">
+        <meta name="robots" content="index, follow">
+        <meta property="og:title" content="WordVibe - AI Speech Tools">
+        <meta property="og:description" content="Experience seamless text-to-speech and speech-to-text conversion with WordVibe.">
+        <meta property="og:url" content="https://wordvibe.streamlit.app/">
+    </head>
+""", unsafe_allow_html=True)
 CSV_FILE = 'users.csv'
 DB_FILE = 'users.db'
 def hash_password(password):
