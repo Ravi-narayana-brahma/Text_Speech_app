@@ -721,27 +721,36 @@ def speech_to_text(audio_file, language_code):
     except sr.RequestError as e:
         st.error(f"Could not request results from Google Web Speech API; {e}")
         return None
-def recognize_from_microphone():
-    recognizer = sr.Recognizer()
+recognizer = sr.Recognizer()
 
-    webrtc_ctx = webrtc_streamer(
+def audio_callback(frame: av.AudioFrame):
+    """Process incoming audio frames and return recognized text."""
+    audio = frame.to_ndarray()
+    
+    # Convert audio to the required format
+    audio_data = sr.AudioData(audio.tobytes(), frame.sample_rate, 2)
+    
+    try:
+        text = recognizer.recognize_google(audio_data, language="en-US")
+        st.session_state["recognized_text"] = text
+    except sr.UnknownValueError:
+        st.session_state["recognized_text"] = "Could not understand the audio."
+    except sr.RequestError as e:
+        st.session_state["recognized_text"] = f"Speech Recognition API error: {e}"
+
+def recognize_from_microphone():
+    """Start WebRTC audio streaming and process speech."""
+    st.session_state.setdefault("recognized_text", "")
+
+    webrtc_streamer(
         key="speech-to-text",
         mode=WebRtcMode.SENDRECV,
         audio_receiver_size=256,
         media_stream_constraints={"audio": True, "video": False},
+        async_processing=True,
+        rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
+        audio_frame_callback=audio_callback,
     )
-
-    if webrtc_ctx.audio_receiver:
-        try:
-            audio_frames = webrtc_ctx.audio_receiver.get_frames(timeout=1)
-            audio_data = b"".join([frame.to_ndarray().tobytes() for frame in audio_frames])
-
-            with sr.AudioFile(audio_data) as source:
-                audio = recognizer.record(source)
-                text = recognizer.recognize_google(audio, language="en-US")
-                st.write(f"🎙 Recognized Text: {text}")
-        except Exception as e:
-            st.error(f"❌ Error: {e}")
 def save_uploaded_file(uploaded_file):
     if uploaded_file is not None:
         audio_format = uploaded_file.name.split('.')[-1].lower()
