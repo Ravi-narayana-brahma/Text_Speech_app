@@ -1380,7 +1380,7 @@ def show_speech_to_text():
                     """,
                     unsafe_allow_html=True
                 )
-
+                time.sleep(5)
     # Display STT history if logged in
     if "user_details" in st.session_state and st.session_state["user_details"] is not None:
         st.markdown('<h3 style="font-size: 30px; color: white; text-align: center;">STT History</h3>', unsafe_allow_html=True)
