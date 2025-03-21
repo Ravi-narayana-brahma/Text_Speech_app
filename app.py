@@ -89,18 +89,6 @@ def save_stt_history(username, input_language, output_language, transcript, tran
     ''', (username, input_language, output_language, transcript, translated_text))
     conn.commit()
     conn.close()
-st.markdown("""
-    <head>
-        <title>WordVibe - AI Text to Speech & Speech to Text</title>
-        <meta name="description" content="Convert text to speech and speech to text using AI. Supports multiple languages and instant voice conversion.">
-        <meta name="keywords" content="text to speech, speech to text, AI voice converter, online translator">
-        <meta name="robots" content="index, follow">
-        <meta property="og:title" content="WordVibe - AI Speech Tools">
-        <meta property="og:description" content="Experience seamless text-to-speech and speech-to-text conversion with WordVibe.">
-        <meta property="og:url" content="https://wordvibe.streamlit.app/">
-    </head>
-""", unsafe_allow_html=True)
-
 def read_users_from_csv():
     if os.path.exists(CSV_FILE):
         users_df = pd.read_csv(CSV_FILE)
