@@ -723,49 +723,37 @@ def speech_to_text(audio_file, language_code):
         return None
 recognizer = sr.Recognizer()
 
-def audio_callback(frame: av.AudioFrame):
-    """Process incoming audio frames and recognize speech."""
-    audio = frame.to_ndarray()
-    audio_data = sr.AudioData(audio.tobytes(), frame.sample_rate, 2)
-
-    try:
-        text = recognizer.recognize_google(audio_data, language=st.session_state["input_lang"])
-        st.session_state["recognized_text"] = text  # Store recognized text
-        st.session_state["is_recognized"] = True  # Set flag when successful
-    except sr.UnknownValueError:
-        st.session_state["recognized_text"] = "❌ Could not understand the audio."
-    except sr.RequestError as e:
-        st.session_state["recognized_text"] = f"❌ Speech Recognition API error: {e}"
-
 def recognize_from_microphone(input_language):
-    """Keep listening for speech until a valid text is recognized."""
-    st.session_state.setdefault("recognized_text", "")
-    st.session_state.setdefault("is_recognized", False)
-    st.session_state["input_lang"] = input_language  # Store selected language
+    """Listen to microphone input and update session state without rerunning the page."""
 
-    # Start WebRTC audio streaming
-    webrtc_streamer(
-        key="speech-to-text",
-        mode=WebRtcMode.SENDRECV,
-        audio_receiver_size=256,
-        media_stream_constraints={"audio": True, "video": False},
-        async_processing=True,
-        rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
-        audio_frame_callback=audio_callback,
-    )
+    if "recognized_text" not in st.session_state:
+        st.session_state["recognized_text"] = None
+    if "translated_text" not in st.session_state:
+        st.session_state["translated_text"] = None
 
-    # Keep checking for recognized text
-    while not st.session_state["is_recognized"]:
-        time.sleep(0.5)  # Wait and check again
+    with sr.Microphone() as source:
         st.markdown(
             "<div style='font-size: 18px; color: #fff; background: rgba(255, 165, 0, 0.8); "
             "padding: 15px; border-radius: 8px; text-align: center;'>"
             "🎤 Listening... Please speak clearly</div>",
             unsafe_allow_html=True
         )
-        st.session_state["is_recognized"] = True  # Stop loop once recognized
+        
+        recognizer.adjust_for_ambient_noise(source, duration=1)
+        audio = recognizer.listen(source)
 
-    return st.session_state["recognized_text"]
+    try:
+        text = recognizer.recognize_google(audio, language=input_language)
+        st.session_state["recognized_text"] = text
+    except sr.UnknownValueError:
+        st.session_state["recognized_text"] = "❌ Could not understand the audio."
+    except sr.RequestError as e:
+        st.session_state["recognized_text"] = f"❌ Speech Recognition API error: {e}"
+
+if "recognized_text" not in st.session_state:
+    st.session_state["recognized_text"] = None
+if "translated_text" not in st.session_state:
+    st.session_state["translated_text"] = None
 def save_uploaded_file(uploaded_file):
     if uploaded_file is not None:
         audio_format = uploaded_file.name.split('.')[-1].lower()
@@ -1333,65 +1321,63 @@ def show_speech_to_text():
                         """,
                         unsafe_allow_html=True
                     )
-
-    # Handling live voice recording
     elif input_choice == "Record live voice":
         if st.button("Start Recording"):
-            recognized_text = recognize_from_microphone(input_language[1])
-            if recognized_text:
-                translated_text = translate_text(recognized_text, input_language[1], output_language[1])
-
+            recognize_from_microphone(input_language[1])  # Updates session state
+    
+        if st.session_state["recognized_text"]:
+            if "❌" not in st.session_state["recognized_text"]:  # If recognition is successful
+                st.session_state["translated_text"] = translate_text(st.session_state["recognized_text"], input_language[1], output_language[1])
+    
                 st.markdown(
                     f"""
                     <div style="font-size: 23px; color: #fff; background-color: rgba(7, 228, 36, 0.88); 
                             padding: 20px; border-radius: 8px; margin-top: 20px; 
                             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                            Recognized Text: {recognized_text}
+                            Recognized Text: {st.session_state['recognized_text']}
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
+    
                 st.markdown(
                     f"""
                     <div style="font-size: 23px; color: #fff; background-color: rgba(7, 228, 36, 0.88); 
                             padding: 20px; border-radius: 8px;
                             margin-top: 20px; 
                             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                            Translated Text: {translated_text}
+                            Translated Text: {st.session_state['translated_text']}
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
-
-                # Save STT history if recognized text and translated text are available
-                if recognized_text and translated_text:
-                    if "user_details" in st.session_state and st.session_state["user_details"] is not None:
-                        username = st.session_state["user_details"]["username"]
-                        save_stt_history(username, input_language[1], output_language[1], recognized_text, translated_text)
-                    else:
-                        st.markdown(
-                            """
-                            <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
-                                    padding: 10px; border-radius: 8px; text-align: center;
-                                    margin-top: 20px; 
-                                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                                You must be logged in to view TTS history.
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
+    
+                if "user_details" in st.session_state and st.session_state["user_details"]:
+                    username = st.session_state["user_details"]["username"]
+                    save_stt_history(username, input_language[1], output_language[1], st.session_state["recognized_text"], st.session_state["translated_text"])
+                else:
+                    st.markdown(
+                        """
+                        <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
+                                padding: 10px; border-radius: 8px; text-align: center;
+                                margin-top: 20px; 
+                                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+                            You must be logged in to save TTS history.
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
             else:
                 st.markdown(
-                    """
+                    f"""
                     <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
                             padding: 20px; border-radius: 8px; margin-top: 15px; 
                             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                        Speech recognition failed. Please try again.
+                        {st.session_state['recognized_text']}
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
-                time.sleep(5)
     # Display STT history if logged in
     if "user_details" in st.session_state and st.session_state["user_details"] is not None:
         st.markdown('<h3 style="font-size: 30px; color: white; text-align: center;">STT History</h3>', unsafe_allow_html=True)
