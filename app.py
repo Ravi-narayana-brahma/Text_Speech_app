@@ -723,56 +723,69 @@ def speech_to_text(audio_file, language_code):
         return None
 def recognize_from_microphone(language_code):
     recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.markdown(
-                """
-                    <div style="font-size: 18px; color: #fff; background-color: rgb(30, 9, 150); 
-                            padding: 20px; border-radius: 8px; 
-                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                        Adjusting for ambient noise... Please wait.
-                    </div>
-                """,
-                unsafe_allow_html=True
-                )
-        recognizer.adjust_for_ambient_noise(source, duration=1)
-        st.markdown(
-                """
-                    <div style="font-size: 18px; color: #fff; background-color: rgb(30, 9, 150); 
-                            padding: 20px; border-radius: 8px; margin-top: 15px;
-                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                        Listening... Please speak into the microphone.
-                    </div>
-                """,
-                unsafe_allow_html=True
-                )
-        try:
-            audio_data = recognizer.listen(source, timeout=10, phrase_time_limit=15)
-            st.markdown(
-                """
-                    <div style="font-size: 18px; color: #fff; background-color: rgb(30, 9, 150); 
-                            padding: 20px; border-radius: 8px; margin-top: 15px;
-                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                        Processing audio...
-                    </div>
-                """,
-                unsafe_allow_html=True
-            )
-            text = recognizer.recognize_google(audio_data, language=language_code)
-            return text
-        except sr.UnknownValueError:
-            st.markdown(
-                """
-                <div style="font-size: 18px; color: #fff; background-color: rgba(255, 0, 0, 0.7); 
-                            padding: 20px; border-radius: 8px; margin-top: 15px; 
-                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-                    Could not understand the audio
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-        except sr.RequestError as e:
-            st.error(f"Could not request results from Google Web Speech API; {e}")
-    return None
+    try:
+        with sr.AudioFile(audio_path) as source:
+            audio = recognizer.record(source)
+        text = recognizer.recognize_google(audio, language=language_code)
+        return text
+    except sr.UnknownValueError:
+        return "Could not understand the audio."
+    except sr.RequestError:
+        return "Error with Google Speech API."
+
+# JavaScript to record audio
+js_code = """
+<script>
+    let mediaRecorder;
+    let audioChunks = [];
+    
+    function startRecording() {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.start();
+            audioChunks = [];
+            
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+            
+            mediaRecorder.onstop = () => {
+                let audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                let reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = () => {
+                    let base64data = reader.result.split(',')[1];
+                    window.parent.postMessage({ type: 'audio', data: base64data }, '*');
+                };
+            };
+        });
+    }
+    
+    function stopRecording() {
+        mediaRecorder.stop();
+    }
+</script>
+
+<button onclick="startRecording()">🎤 Start Recording</button>
+<button onclick="stopRecording()">⏹️ Stop Recording</button>
+"""
+
+st.components.v1.html(js_code, height=100)
+
+# Receive and decode audio data
+if "audio_data" in st.session_state:
+    audio_base64 = st.session_state.audio_data
+    audio_bytes = base64.b64decode(audio_base64)
+    
+    with open("temp_audio.wav", "wb") as f:
+        f.write(audio_bytes)
+
+    st.audio("temp_audio.wav", format="audio/wav")
+
+    # Process and recognize text
+    recognized_text = recognize_from_audio_file("temp_audio.wav")
+    st.write("Recognized Text:", recognized_text)
 def save_uploaded_file(uploaded_file):
     if uploaded_file is not None:
         audio_format = uploaded_file.name.split('.')[-1].lower()
