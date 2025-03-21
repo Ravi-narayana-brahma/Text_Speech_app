@@ -721,27 +721,27 @@ def speech_to_text(audio_file, language_code):
     except sr.RequestError as e:
         st.error(f"Could not request results from Google Web Speech API; {e}")
         return None
-def recognize_from_microphone(language_code="en-US"):
+def recognize_from_microphone():
     recognizer = sr.Recognizer()
-    
-    with sr.Microphone() as source:
-        st.info("🎤 Adjusting for ambient noise, please wait...")
-        recognizer.adjust_for_ambient_noise(source, duration=1)
-        
-        st.info("🎤 Listening... Please speak into the microphone.")
+
+    webrtc_ctx = webrtc_streamer(
+        key="speech-to-text",
+        mode=WebRtcMode.SENDRECV,
+        audio_receiver_size=256,
+        media_stream_constraints={"audio": True, "video": False},
+    )
+
+    if webrtc_ctx.audio_receiver:
         try:
-            audio_data = recognizer.listen(source, timeout=10, phrase_time_limit=15)
-            
-            st.info("🔄 Processing audio...")
-            text = recognizer.recognize_google(audio_data, language=language_code)
-            return text
-        
-        except sr.UnknownValueError:
-            st.error("😕 Could not understand the audio. Try speaking clearly.")
-        except sr.RequestError as e:
-            st.error(f"⚠️ Could not request results from Google Web Speech API; {e}")
-    
-    return None
+            audio_frames = webrtc_ctx.audio_receiver.get_frames(timeout=1)
+            audio_data = b"".join([frame.to_ndarray().tobytes() for frame in audio_frames])
+
+            with sr.AudioFile(audio_data) as source:
+                audio = recognizer.record(source)
+                text = recognizer.recognize_google(audio, language="en-US")
+                st.write(f"🎙 Recognized Text: {text}")
+        except Exception as e:
+            st.error(f"❌ Error: {e}")
 def save_uploaded_file(uploaded_file):
     if uploaded_file is not None:
         audio_format = uploaded_file.name.split('.')[-1].lower()
