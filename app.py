@@ -726,21 +726,22 @@ recognizer = sr.Recognizer()
 def audio_callback(frame: av.AudioFrame):
     """Process incoming audio frames and return recognized text."""
     audio = frame.to_ndarray()
-    
-    # Convert audio to the required format
+
+    # Convert audio to SpeechRecognition-compatible format
     audio_data = sr.AudioData(audio.tobytes(), frame.sample_rate, 2)
-    
+
     try:
-        text = recognizer.recognize_google(audio_data, language="en-US")
+        text = recognizer.recognize_google(audio_data, language=st.session_state["input_lang"])
         st.session_state["recognized_text"] = text
     except sr.UnknownValueError:
         st.session_state["recognized_text"] = "Could not understand the audio."
     except sr.RequestError as e:
         st.session_state["recognized_text"] = f"Speech Recognition API error: {e}"
 
-def recognize_from_microphone():
+def recognize_from_microphone(input_language):
     """Start WebRTC audio streaming and process speech."""
     st.session_state.setdefault("recognized_text", "")
+    st.session_state["input_lang"] = input_language  # Store input language
 
     webrtc_streamer(
         key="speech-to-text",
@@ -751,6 +752,8 @@ def recognize_from_microphone():
         rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
         audio_frame_callback=audio_callback,
     )
+
+    return st.session_state["recognized_text"]
 def save_uploaded_file(uploaded_file):
     if uploaded_file is not None:
         audio_format = uploaded_file.name.split('.')[-1].lower()
