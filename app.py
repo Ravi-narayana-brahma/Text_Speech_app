@@ -17,6 +17,7 @@ import random
 import hashlib
 import easyocr
 import pyttsx3
+import tempfile
 from PIL import Image
 from gtts import gTTS
 from googletrans import Translator
@@ -1116,11 +1117,7 @@ def show_text_to_text_translation():
 
     # Close the container
     st.markdown('</div>', unsafe_allow_html=True)
-import tempfile
-
-# ✅ Initialize EasyOCR Reader
 reader = easyocr.Reader(["en"], download_enabled=True, model_storage_directory="models/")
-
 def text_to_speech(text, lang="en"):
     tts = gTTS(text=text, lang=lang)
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
@@ -1228,7 +1225,7 @@ def show_speech_to_text():
     output_language = st.selectbox("Select the output language for translation:", languages, key="output_language")
 
     # Input method selection
-    input_choice = st.selectbox("Choose input method:", ["Record live voice", "Upload audio file"])
+    input_choice = st.selectbox("Choose input method:", ["Upload audio file", "Record live voice"])
 
     # Initialize transcript and translated_text
     transcript = ""
