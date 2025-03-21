@@ -730,20 +730,20 @@ def audio_callback(frame: av.AudioFrame):
 
     try:
         text = recognizer.recognize_google(audio_data, language=st.session_state["input_lang"])
-        st.session_state["recognized_text"] = text
+        st.session_state["recognized_text"] = text  # Store recognized text
+        st.session_state["is_recognized"] = True  # Set flag when successful
     except sr.UnknownValueError:
         st.session_state["recognized_text"] = "❌ Could not understand the audio."
-        st.session_state["retry"] = True  # Set flag to retry
     except sr.RequestError as e:
         st.session_state["recognized_text"] = f"❌ Speech Recognition API error: {e}"
-        st.session_state["retry"] = True  # Set flag to retry
 
 def recognize_from_microphone(input_language):
-    """Start WebRTC audio streaming and process speech with retry support."""
+    """Keep listening for speech until a valid text is recognized."""
     st.session_state.setdefault("recognized_text", "")
-    st.session_state.setdefault("retry", False)
-    st.session_state["input_lang"] = input_language  # Store language
+    st.session_state.setdefault("is_recognized", False)
+    st.session_state["input_lang"] = input_language  # Store selected language
 
+    # Start WebRTC audio streaming
     webrtc_streamer(
         key="speech-to-text",
         mode=WebRtcMode.SENDRECV,
@@ -753,6 +753,17 @@ def recognize_from_microphone(input_language):
         rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
         audio_frame_callback=audio_callback,
     )
+
+    # Keep checking for recognized text
+    while not st.session_state["is_recognized"]:
+        time.sleep(0.5)  # Wait and check again
+        st.markdown(
+            "<div style='font-size: 18px; color: #fff; background: rgba(255, 165, 0, 0.8); "
+            "padding: 15px; border-radius: 8px; text-align: center;'>"
+            "🎤 Listening... Please speak clearly</div>",
+            unsafe_allow_html=True
+        )
+        st.session_state["is_recognized"] = True  # Stop loop once recognized
 
     return st.session_state["recognized_text"]
 def save_uploaded_file(uploaded_file):
