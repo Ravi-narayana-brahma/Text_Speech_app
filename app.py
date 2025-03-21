@@ -724,24 +724,25 @@ def speech_to_text(audio_file, language_code):
 recognizer = sr.Recognizer()
 
 def audio_callback(frame: av.AudioFrame):
-    """Process incoming audio frames and return recognized text."""
+    """Process incoming audio frames and recognize speech."""
     audio = frame.to_ndarray()
-
-    # Convert audio to SpeechRecognition-compatible format
     audio_data = sr.AudioData(audio.tobytes(), frame.sample_rate, 2)
 
     try:
         text = recognizer.recognize_google(audio_data, language=st.session_state["input_lang"])
         st.session_state["recognized_text"] = text
     except sr.UnknownValueError:
-        st.session_state["recognized_text"] = "Could not understand the audio."
+        st.session_state["recognized_text"] = "❌ Could not understand the audio."
+        st.session_state["retry"] = True  # Set flag to retry
     except sr.RequestError as e:
-        st.session_state["recognized_text"] = f"Speech Recognition API error: {e}"
+        st.session_state["recognized_text"] = f"❌ Speech Recognition API error: {e}"
+        st.session_state["retry"] = True  # Set flag to retry
 
 def recognize_from_microphone(input_language):
-    """Start WebRTC audio streaming and process speech."""
+    """Start WebRTC audio streaming and process speech with retry support."""
     st.session_state.setdefault("recognized_text", "")
-    st.session_state["input_lang"] = input_language  # Store input language
+    st.session_state.setdefault("retry", False)
+    st.session_state["input_lang"] = input_language  # Store language
 
     webrtc_streamer(
         key="speech-to-text",
