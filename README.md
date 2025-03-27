@@ -90,11 +90,6 @@ streamlit run app.py
 
 ---
 
-## **📸 Screenshots (Optional)**  
-*(Add screenshots here to showcase UI and functionalities.)*  
-
----
-
 ## **🔮 Future Enhancements**  
 🚀 Add real-time speech recognition  
 🚀 Improve speech synthesis using deep learning models  
